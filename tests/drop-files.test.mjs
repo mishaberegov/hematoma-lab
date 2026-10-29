@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {filesFromDrop} from '../dist/drop-files.mjs';
+import {filesFromDrop,describeInput} from '../dist/drop-files.mjs';
 
 const fileEntry=name=>({isFile:true,file(resolve){resolve({name})}});
 const directory=(batches)=>({isDirectory:true,createReader(){let next=0;return {readEntries(resolve){resolve(batches[next++]||[])}}}});
@@ -20,4 +20,8 @@ test('ordinary dropped files pass through without an entry API',async()=>{
 test('empty dropped directory reports a directory-specific error',async()=>{
   const root=directory([[]]);
   await assert.rejects(filesFromDrop({items:[{webkitGetAsEntry:()=>root}],files:[]}),/папк/i);
+});
+test('scan diagnostics distinguish an empty directory placeholder from unpacked files',()=>{
+  assert.equal(describeInput([{size:0}],true),'папка: 1 файл, 1 пустой');
+  assert.equal(describeInput([{size:8},{size:10}],true),'папка: 2 файла, 0 пустых');
 });

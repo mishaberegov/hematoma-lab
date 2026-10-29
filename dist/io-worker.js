@@ -84,7 +84,7 @@ self.onmessage=async({data})=>{
       groups=[];zipIndices=new Map();slot=data.slot;let parsed=[],errors=[],skipped=0,total=0,declared=0;const budget={total:0};
       const add=(p,source,name,error)=>{
         if(p){p.frames=p.frames.map(f=>({cols:f.cols,rows:f.rows,source}));parsed.push(p);}
-        else{skipped++;if(error&&errors.length<5)errors.push(name+': '+(error.message||error));}
+        else{skipped++;if(errors.length<5)errors.push(error?.message||'В файле нет распознаваемых пикселей DICOM (PixelData).');}
       };
       for(let i=0;i<data.files.length;i++){
         const file=data.files[i];
@@ -110,7 +110,7 @@ self.onmessage=async({data})=>{
         if(i%25===0||i===data.files.length-1)self.postMessage({type:'progress',slot,text:'Чтение DICOM',fraction:(i+1)/data.files.length});
       }
       groups=groupParsed(parsed);
-      if(!groups.length)throw Error('Не найдена подходящая DICOM-серия. '+(errors[0]||'Выбери папку с DICOM-файлами или ZIP.'));
+      if(!groups.length)throw Error(`Не найдена подходящая DICOM-серия: проверено ${data.files.length} файлов, пропущено ${skipped}. ${errors[0]||'Ни один файл не распознан как изображение DICOM.'}`);
       self.postMessage({type:'groups',slot,groups:groups.map(describeGroup),skipped,errors,cachedZip:data.files.length===1&&zipIndices.size===1,reused:false});
     }else if(data.type==='build'){
       const group=groups.find(g=>g.key===data.key);if(!group)throw Error('Серия не найдена. Выбери файлы повторно.');

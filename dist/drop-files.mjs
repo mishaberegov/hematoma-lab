@@ -19,3 +19,7 @@ export async function filesFromDrop(transfer){
   if(!files.length)throw Error('Перетащенная папка не содержит доступных DICOM-файлов или ZIP.');
   return files;
 }
+export function describeInput(files,isDirectory){
+  const count=files.length,empty=Array.from(files).filter(file=>file.size===0).length;
+  return `${isDirectory?'папка':'файлы'}: ${count} ${count===1?'файл':count>=2&&count<=4?'файла':'файлов'}, ${empty} ${empty===1?'пустой':'пустых'}`;
+}
