@@ -10,7 +10,7 @@ Published page: https://mri.moscow/hematoma-lab/ . To run locally:
 npm test
 npm start
 ```
-Open `http://localhost:8765/` (or serve `dist/` from another localhost static HTTP server). Click **Synthetic demo** to try without patient images. Drag DICOM files, a folder (folder picker), or ZIP onto the page; alternatively choose local files/folder. Select a series then load. No build or npm install needed.
+Open `http://localhost:8765/` (or serve `dist/` from another localhost static HTTP server). Click **Synthetic demo** to try without patient images. Drag DICOM files, a directory tree, or ZIP onto the page; alternatively choose local files/folder. Select a series then load. No build or npm install needed.
 
 ## Editing
 

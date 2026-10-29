@@ -1,4 +1,5 @@
 import {index,voxelFromPlane,planePixel,planeAspect,localEdit,history,volumes,autoSeed} from './algorithm.mjs';
+import {filesFromDrop} from './drop-files.mjs';
 const $=id=>document.getElementById(id),names=['','Intraparenchymal','Intraventricular','Subarachnoid','Subdural','Epidural'],colors=[[0,0,0],[255,78,84],[79,172,255],[255,194,57],[184,109,252],[66,225,166]];
 let volume=null,mask=null,edits=null,worker=null,preview=null,holding=null,cross=[0,0,0];const canvases=['axial','coronal','sagittal'];
 function status(text){$('status').textContent=text;}
@@ -18,4 +19,9 @@ for(const [id,dim] of [['x',0],['y',1],['z',2]])$(id).addEventListener('input',e
 for(const id of ['level','width','label'])$(id).addEventListener('input',draw);$('radius').addEventListener('input',()=>{$('radiusText').textContent=$('radius').value+' mm';updatePreview();});$('undo').onclick=()=>{if(edits?.undo())draw();};$('redo').onclick=()=>{if(edits?.redo())draw();};$('demo').onclick=synthetic;
 function scan(files){if(!files.length)return;worker?.terminate();worker=new Worker('./io-worker.js');const current=worker;status('Scanning '+files.length+' local files…');$('series').hidden=$('load').hidden=true;worker.onerror=e=>status('Worker failure: '+e.message);worker.onmessage=({data})=>{if(worker!==current)return;if(data.type==='error'){status('Measurement blocked: '+data.message);return;}if(data.type==='groups'){const select=$('series');select.replaceChildren(...data.groups.map(g=>{const o=document.createElement('option');o.value=g.key;o.textContent=g.name+' · '+g.modality+' · '+g.frames+' slices · '+g.dims.join('×');return o;}));select.hidden=$('load').hidden=false;status('Choose a series ('+data.groups.length+' found; '+data.skipped+' skipped).');}if(data.type==='volume')setVolume(data.volume);if(data.type==='progress')status(data.text+' '+Math.round(data.fraction*100)+'%');};worker.postMessage({type:'scan',slot:'ct',files:Array.from(files)});}
 $('files').onchange=e=>scan(e.target.files);$('folder').onchange=e=>scan(e.target.files);$('load').onclick=()=>{if(worker){status('Decoding source CT…');worker.postMessage({type:'build',key:$('series').value});}};
-const drop=e=>{e.preventDefault();if(e.type==='drop')scan(e.dataTransfer.files);};document.addEventListener('dragover',drop);document.addEventListener('drop',drop);
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',async e=>{
+ e.preventDefault();
+ try{scan(await filesFromDrop(e.dataTransfer));}
+ catch(error){status('Не удалось прочитать перетащенную папку: '+error.message);}
+});
