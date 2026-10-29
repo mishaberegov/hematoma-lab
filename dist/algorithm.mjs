@@ -1,0 +1,48 @@
+export const index=(dims,x,y,z)=>(z*dims[1]+y)*dims[0]+x;
+export function voxelFromPlane(plane,a,b,slice){return plane==='axial'?[a,b,slice]:plane==='coronal'?[a,slice,b]:[slice,a,b];}
+export function planePixel(plane,[x,y,z]){return plane==='axial'?[x,y]:plane==='coronal'?[x,z]:[y,z];}
+export function worldAt(v,[x,y,z]){const m=v.matrix;return v.origin.map((o,i)=>o+m[i*3]*x+m[i*3+1]*y+m[i*3+2]*z);}
+export function planeAspect(v,plane){
+  const [horizontal,vertical]=plane==='axial'?[0,1]:plane==='coronal'?[0,2]:[1,2];
+  const length=axis=>Math.hypot(v.matrix[axis],v.matrix[axis+3],v.matrix[axis+6]);
+  return v.dims[horizontal]*length(horizontal)/(v.dims[vertical]*length(vertical));
+}
+const neighbours=(dims,i)=>{const [w,h,d]=dims,z=Math.floor(i/(w*h)),y=Math.floor(i/w)%h,x=i%w,r=[];if(x)r.push(i-1);if(x<w-1)r.push(i+1);if(y)r.push(i-w);if(y<h-1)r.push(i+w);if(z)r.push(i-w*h);if(z<d-1)r.push(i+w*h);return r;};
+const valid=(v,[x,y,z])=>Number.isInteger(x)&&Number.isInteger(y)&&Number.isInteger(z)&&x>=0&&y>=0&&z>=0&&x<v.dims[0]&&y<v.dims[1]&&z<v.dims[2];
+export function localEdit(v,mask,seed,label,mode,radiusMm,strength=1){
+  if(!valid(v,seed)||!Number.isFinite(radiusMm)||radiusMm<=0||!Number.isFinite(strength)||strength<=0)return [];
+  const start=index(v.dims,...seed),adding=mode==='grow';if(mode!=='grow'&&mode!=='shrink')throw Error('Unknown edit mode');
+  if(!adding&&mask[start]!==label)return [];
+  if(adding&&(mask[start]!==0||!Number.isFinite(v.data[start])||v.data[start]<30||v.data[start]>100))return [];
+  const visited=new Uint8Array(mask.length),queue=[start],result=[];visited[start]=1;let touchesBoundary=false;
+  for(let p=0;p<queue.length;p++){
+    const i=queue[p],x=i%v.dims[0],y=Math.floor(i/v.dims[0])%v.dims[1],z=Math.floor(i/(v.dims[0]*v.dims[1]));
+    const m=v.matrix,dx=x-seed[0],dy=y-seed[1],dz=z-seed[2];
+    if(Math.hypot(m[0]*dx+m[1]*dy+m[2]*dz,m[3]*dx+m[4]*dy+m[5]*dz,m[6]*dx+m[7]*dy+m[8]*dz)>radiusMm*strength+1e-7)continue;
+    if(adding?(mask[i]!==0||!Number.isFinite(v.data[i])||v.data[i]<30||v.data[i]>100):mask[i]!==label)continue;
+    result.push(i);
+    const adjacent=neighbours(v.dims,i);
+    if(adding){if(adjacent.some(j=>mask[j]===label))touchesBoundary=true;}
+    else if(x===0||y===0||z===0||x===v.dims[0]-1||y===v.dims[1]-1||z===v.dims[2]-1||adjacent.some(j=>mask[j]===0))touchesBoundary=true;
+    for(const j of adjacent)if(!visited[j]){visited[j]=1;queue.push(j);}
+  }
+  return touchesBoundary?result:[];
+}
+export function autoSeed(v,seed,minHU=30,maxHU=100){
+  if(!valid(v,seed))return [];
+  const start=index(v.dims,...seed),seen=new Uint8Array(v.data.length),queue=[start],result=[];seen[start]=1;
+  for(let p=0;p<queue.length;p++){
+    const i=queue[p],hu=v.data[i];if(!Number.isFinite(hu)||hu<minHU||hu>maxHU)continue;result.push(i);
+    for(const j of neighbours(v.dims,i))if(!seen[j]){seen[j]=1;queue.push(j);}
+  }
+  return result;
+}
+export function history(mask){const undoStack=[],redoStack=[];return {
+  commit(indices,label){const changes=indices.filter(i=>mask[i]!==label).map(i=>[i,mask[i],label]);for(const [i,,next] of changes)mask[i]=next;if(changes.length){undoStack.push(changes);redoStack.length=0;}return changes.length;},
+  undo(){const changes=undoStack.pop();if(!changes)return false;for(const [i,old] of changes)mask[i]=old;redoStack.push(changes);return true;},
+  redo(){const changes=redoStack.pop();if(!changes)return false;for(const [i,,next] of changes)mask[i]=next;undoStack.push(changes);return true;}
+};}
+export function volumes(mask,v){const m=v.matrix;const voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000;
+  const counts={};for(const label of mask)if(label)counts[label]=(counts[label]||0)+1;
+  const out={total:0};for(const [label,count] of Object.entries(counts)){out[label]=count*voxel;out.total+=out[label];}return out;
+}
