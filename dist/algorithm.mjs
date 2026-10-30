@@ -52,9 +52,10 @@ export function autoSeed(v,seed,minHU=30,maxHU=100,radiusMm=8){
   }
   return result;
 }
-export function proposeFill(v,mask,label,markers,excluded=[],marginMm=8){
+export function proposeFill(v,mask,label,markers,excluded=[],marginMm=8,sensitivity=50){
   const empty=reason=>({indices:[],reason,minHU:null,maxHU:null});
   if(!Number.isFinite(marginMm)||marginMm<=0)return empty('Invalid physical margin.');
+  if(!Number.isFinite(sensitivity)||sensitivity<0||sensitivity>100)return empty('Fill sensitivity must be 0–100.');
   const positives=markers.filter(m=>m.label===label&&valid(v,m.xyz)&&mask[index(v.dims,...m.xyz)]===label);
   if(positives.length<3)return empty('Place at least three accepted seed spheres around the target first.');
   const samples=[];
@@ -62,7 +63,8 @@ export function proposeFill(v,mask,label,markers,excluded=[],marginMm=8){
   if(samples.length<3)return empty('Not enough accepted CT pixels to estimate a local HU range.');
   samples.sort((a,b)=>a-b);
   const quantile=p=>samples[Math.floor((samples.length-1)*p)];
-  let minHU=Math.max(20,quantile(.1)-8),maxHU=Math.min(120,quantile(.9)+8);
+  const huPadding=2+sensitivity*.12;
+  let minHU=Math.max(20,quantile(.1)-huPadding),maxHU=Math.min(120,quantile(.9)+huPadding);
   const negatives=excluded.filter(xyz=>valid(v,xyz));
   const negativeHU=negatives.map(xyz=>v.data[index(v.dims,...xyz)]).filter(Number.isFinite);
   if(negativeHU.length){

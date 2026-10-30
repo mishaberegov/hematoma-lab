@@ -34,6 +34,22 @@ test('negative marker blocks a local patch without changing accepted labels',()=
  assert.equal(mask[index(dims,13,12,12)],2);
  assert.deepEqual(proposeFill(volume,mask,1,markers.slice(0,2),[],5).indices,[],'two marks cannot define a 3D ROI');
 });
+test('fill sensitivity changes HU admission monotonically without changing spatial limits or accepted mask',()=>{
+ const dims=[24,24,24],data=new Float32Array(24**3).fill(40),mask=new Uint8Array(data.length),volume={dims,data,matrix:[1,0,0,0,1,0,0,0,1]};
+ const idx=(x,y,z)=>index(dims,x,y,z),sites=[[7,10,10],[13,10,10],[10,7,10]],markers=sites.map(xyz=>{const i=idx(...xyz);data[i]=68;mask[i]=1;return {xyz,label:1,indices:[i]};});
+ for(let x=8;x<=12;x++)data[idx(x,10,10)]=75;
+ for(let y=8;y<=10;y++)data[idx(10,y,10)]=75;
+ for(let y=11;y<=13;y++)data[idx(10,y,10)]=80;
+ const before=mask.slice(),sets=[0,50,100].map(s=>new Set(proposeFill(volume,mask,1,markers,[],6,s).indices));
+ assert(!sets[0].has(idx(10,10,10)));
+ assert(sets[1].has(idx(10,10,10)));
+ assert(!sets[1].has(idx(10,12,10)));
+ assert(sets[2].has(idx(10,12,10)));
+ for(const i of sets[0])assert(sets[1].has(i));
+ for(const i of sets[1])assert(sets[2].has(i));
+ assert(!sets[2].has(idx(1,10,10)),'sensitivity must not expand the marker ROI');
+ assert.deepEqual(mask,before);
+});
 test('window drag changes level vertically and width horizontally, keeping width positive',()=>{
  assert.deepEqual(dragWindow(60,160,25,-50),{level:28,width:176});
  assert.equal(dragWindow(60,160,-1000,0).width,1);

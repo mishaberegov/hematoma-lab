@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
+test('fill sensitivity control adjusts an active proposal without accepting it',()=>{
+ const html=read('index.html'),app=read('app.mjs');
+ assert.match(html,/id="fillSensitivity"[^>]*type="range"[^>]*min="0"[^>]*max="100"[^>]*value="50"/);
+ assert.match(html,/id="fillSensitivityText"/);
+ assert.match(app,/\$\('fillSensitivity'\)\.addEventListener\('input'/);
+ assert.match(app,/proposeFill\(volume,mask,label,seedMarkers,exclusionMarkers,Number\(\$\('radius'\)\.value\),Number\(\$\('fillSensitivity'\)\.value\)\)/);
+});
 test('marker-guided fill has separate exclusion, preview, accept and discard controls',()=>{
  const html=read('index.html'),app=read('app.mjs');
  for(const id of ['proposeFill','acceptFill','discardFill','clearExclusions'])assert.match(html,new RegExp(`id="${id}"`));
