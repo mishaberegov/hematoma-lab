@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
+test('file and folder upload inputs remain keyboard-focusable with visible focus',()=>{
+ const html=read('index.html'),css=read('style.css');
+ for(const id of ['files','folder']){
+  const input=html.match(new RegExp(`<input id="${id}"[^>]*>`))?.[0];
+  assert.ok(input,`${id} input exists`);
+  assert.doesNotMatch(input,/\bhidden\b|\btabindex="-1"/);
+ }
+ assert.match(css,/\.upload:focus-within\s*\{/);
+ assert.match(css,/\.upload input\[type=file\]\s*\{/);
+});
 test('mouse mode controls wrap instead of overflowing a narrow viewport',()=>{
  const css=read('style.css');
  const interaction=css.match(/\.interaction\{([^}]*)\}/)?.[1]||'';
