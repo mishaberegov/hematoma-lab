@@ -66,6 +66,13 @@ test('CT seed is 3D connected, never selects disconnected bone or remote blood',
   const hits=autoSeed(volume,[4,4,2],30,100);
   assert.deepEqual(hits.sort((a,b)=>a-b),[at(4,4,2),at(4,4,3)].sort((a,b)=>a-b));
 });
+test('CT seed remains local even when normal tissue joins a huge HU-qualified component',()=>{
+ const dims=[80,80,80],volume={dims,data:new Float32Array(80**3).fill(60),matrix:[1,0,0,0,1,0,0,0,1]};
+ const hits=autoSeed(volume,[40,40,40],30,100,8);
+ assert(hits.length>0);
+ assert(hits.length<3000,'a local seed must not select the whole 512000-voxel component');
+ assert(hits.every(i=>{const x=i%80,y=Math.floor(i/80)%80,z=Math.floor(i/6400);return Math.hypot(x-40,y-40,z-40)<=8+1e-7;}));
+});
 test('derived-grid volume weights partial edge blocks by their actual source-pixel area',()=>{
  const derived={dims:[3,2,3],matrix:[1,0,0,0,1,0,0,0,1],sourceDims:[5,3,3],reductionFactor:2};
  const mask=new Uint8Array(18);mask[index(derived.dims,0,0,0)]=1;mask[index(derived.dims,2,1,0)]=2;

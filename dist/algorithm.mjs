@@ -32,11 +32,14 @@ export function localEdit(v,mask,seed,label,mode,radiusMm,strength=1){
   }
   return touchesBoundary?result:[];
 }
-export function autoSeed(v,seed,minHU=30,maxHU=100){
-  if(!valid(v,seed))return [];
+export function autoSeed(v,seed,minHU=30,maxHU=100,radiusMm=8){
+  if(!valid(v,seed)||!Number.isFinite(radiusMm)||radiusMm<=0)return [];
   const start=index(v.dims,...seed),seen=new Uint8Array(v.data.length),queue=[start],result=[];seen[start]=1;
   for(let p=0;p<queue.length;p++){
-    const i=queue[p],hu=v.data[i];if(!Number.isFinite(hu)||hu<minHU||hu>maxHU)continue;result.push(i);
+    const i=queue[p],x=i%v.dims[0],y=Math.floor(i/v.dims[0])%v.dims[1],z=Math.floor(i/(v.dims[0]*v.dims[1])),m=v.matrix;
+    const dx=x-seed[0],dy=y-seed[1],dz=z-seed[2];
+    if(Math.hypot(m[0]*dx+m[1]*dy+m[2]*dz,m[3]*dx+m[4]*dy+m[5]*dz,m[6]*dx+m[7]*dy+m[8]*dz)>radiusMm+1e-7)continue;
+    const hu=v.data[i];if(!Number.isFinite(hu)||hu<minHU||hu>maxHU)continue;result.push(i);
     for(const j of neighbours(v.dims,i))if(!seen[j]){seen[j]=1;queue.push(j);}
   }
   return result;
