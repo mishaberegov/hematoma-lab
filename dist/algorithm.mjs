@@ -31,7 +31,7 @@ export function localEdit(v,mask,seed,label,mode,radiusMm,strength=1){
     result.push(i);
     const adjacent=neighbours(v.dims,i);
     if(adding){if(adjacent.some(j=>mask[j]===label))touchesBoundary=true;}
-    else if(x===0||y===0||z===0||x===v.dims[0]-1||y===v.dims[1]-1||z===v.dims[2]-1||adjacent.some(j=>mask[j]===0))touchesBoundary=true;
+    else if(x===0||y===0||z===0||x===v.dims[0]-1||y===v.dims[1]-1||z===v.dims[2]-1||adjacent.some(j=>mask[j]!==label))touchesBoundary=true;
     for(const j of adjacent)if(!visited[j]){visited[j]=1;queue.push(j);}
   }
   return touchesBoundary?result:[];

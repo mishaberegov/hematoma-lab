@@ -72,6 +72,14 @@ test('shrink does not punch a closed cavity inside a thick segmentation',()=>{
   const volume={...v,data:new Float32Array(data).fill(60)};const mask=new Uint8Array(data.length).fill(1);
   assert.deepEqual(localEdit(volume,mask,[4,4,2],1,'shrink',1,1),[]);
 });
+test('shrink recognizes a neighboring compartment as the target mask surface',()=>{
+ const volume={...v,data:new Float32Array(data).fill(60)},mask=new Uint8Array(data.length).fill(2);
+ for(let z=1;z<=3;z++)for(let y=3;y<=5;y++)for(let x=3;x<=5;x++)mask[at(x,y,z)]=1;
+ const changes=localEdit(volume,mask,[4,4,2],1,'shrink',2,1);
+ assert(changes.includes(at(4,4,2)));
+ assert(changes.includes(at(3,4,2)));
+ assert(changes.every(i=>mask[i]===1),'shrink cannot remove the adjacent compartment');
+});
 test('CT seed is 3D connected, never selects disconnected bone or remote blood',()=>{
   const volume={...v,data:new Float32Array(data)};
   volume.data[at(4,4,2)]=65;volume.data[at(4,4,3)]=72;volume.data[at(8,8,2)]=70;volume.data[at(5,4,2)]=450;
