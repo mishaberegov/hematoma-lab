@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,worldAt,planeAspect,localEdit,history,volumes,autoSeed} from '../dist/algorithm.mjs';
+import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
@@ -25,6 +25,18 @@ test('superior is above inferior in both vertical MPR views regardless of slice 
   const negative={...positive,matrix:[.5,0,0,0,.8,0,0,0,-2]};
   assert.deepEqual(displayVoxelFromPlane(negative,plane,2,0,3),plane==='coronal'?[2,3,0]:[3,2,0]);
   assert.deepEqual(displayPlanePixel(negative,plane,[3,2,0]),plane==='coronal'?[3,0]:[2,0]);
+ }
+});
+test('linear display row indexing matches voxel mapping for every plane and slice direction',()=>{
+ for(const sign of [1,-1]){
+  const sample={...v,dims:[7,5,4],matrix:[.5,0,0,0,.8,0,0,0,sign*2]};
+  for(const plane of ['axial','coronal','sagittal']){
+   const w=plane==='sagittal'?5:7,h=plane==='axial'?5:4,slices=plane==='axial'?4:plane==='coronal'?5:7;
+   for(let slice=0;slice<slices;slice++)for(let b=0;b<h;b++){
+    const [start,stride]=displayRowIndex(sample,plane,b,slice);
+    for(let a=0;a<w;a++)assert.equal(start+a*stride,index(sample.dims,...displayVoxelFromPlane(sample,plane,a,b,slice)));
+   }
+  }
  }
 });
 test('grow can connect a clicked blood voxel two voxels from an existing contour',()=>{
