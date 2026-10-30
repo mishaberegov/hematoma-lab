@@ -1,1 +1,1 @@
-{"name":"hematoma-lab","version":"0.4.2","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs","start":"python3 -m http.server 8765 --directory dist"}}
+{"name":"hematoma-lab","version":"0.4.3","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs","start":"python3 -m http.server 8765 --directory dist"}}

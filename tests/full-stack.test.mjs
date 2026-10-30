@@ -20,3 +20,9 @@ test('a single discovered series builds without asking for a one-option selectio
  assert.match(app,/data\.groups\.length===1/);
  assert.match(app,/worker\.postMessage\(\{type:'build',key:data\.groups\[0\]\.key\}\)/);
 });
+test('late directory traversal cannot replace a newer input or its status',()=>{
+ const app=read('app.mjs');
+ assert.match(app,/const token=inputGate\.begin\(\)/);
+ assert.match(app,/if\(inputGate\.current\(token\)\)scan\(awaitedFiles,isDirectory\)/);
+ assert.match(app,/catch\(error\)\{if\(inputGate\.current\(token\)\)status\(/);
+});
