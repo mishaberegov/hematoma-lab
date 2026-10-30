@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {index,planePixel,voxelFromPlane,worldAt,planeAspect,localEdit,history,volumes,autoSeed} from '../dist/algorithm.mjs';
+import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,worldAt,planeAspect,localEdit,history,volumes,autoSeed} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
@@ -16,6 +16,16 @@ test('view aspect uses physical pixel size, not square canvas coordinates',()=>{
   assert.equal(planeAspect(sample,'axial'),(100*.5)/(80*.8));
   assert.equal(planeAspect(sample,'coronal'),(100*.5)/(20*2));
   assert.equal(planeAspect(sample,'sagittal'),(80*.8)/(20*2));
+});
+test('superior is above inferior in both vertical MPR views regardless of slice axis direction',()=>{
+ const positive={...v,dims:[9,9,5]};
+ for(const plane of ['coronal','sagittal']){
+  assert.deepEqual(displayVoxelFromPlane(positive,plane,2,0,3),plane==='coronal'?[2,3,4]:[3,2,4]);
+  assert.deepEqual(displayPlanePixel(positive,plane,[3,2,4]),plane==='coronal'?[3,0]:[2,0]);
+  const negative={...positive,matrix:[.5,0,0,0,.8,0,0,0,-2]};
+  assert.deepEqual(displayVoxelFromPlane(negative,plane,2,0,3),plane==='coronal'?[2,3,0]:[3,2,0]);
+  assert.deepEqual(displayPlanePixel(negative,plane,[3,2,0]),plane==='coronal'?[3,0]:[2,0]);
+ }
 });
 test('grow can connect a clicked blood voxel two voxels from an existing contour',()=>{
   const volume={...v,data:new Float32Array(data)};const mask=new Uint8Array(data.length);

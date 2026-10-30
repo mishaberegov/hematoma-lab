@@ -1,6 +1,10 @@
 export const index=(dims,x,y,z)=>(z*dims[1]+y)*dims[0]+x;
 export function voxelFromPlane(plane,a,b,slice){return plane==='axial'?[a,b,slice]:plane==='coronal'?[a,slice,b]:[slice,a,b];}
 export function planePixel(plane,[x,y,z]){return plane==='axial'?[x,y]:plane==='coronal'?[x,z]:[y,z];}
+// DICOM LPS: patient superior is positive Z. Display superior at canvas top.
+const displayZ=(v,z)=>v.matrix[8]>0?v.dims[2]-1-z:z;
+export function displayVoxelFromPlane(v,plane,a,b,slice){return voxelFromPlane(plane,a,plane==='axial'?b:displayZ(v,b),slice);}
+export function displayPlanePixel(v,plane,xyz){const [a,b]=planePixel(plane,xyz);return [a,plane==='axial'?b:displayZ(v,b)];}
 export function worldAt(v,[x,y,z]){const m=v.matrix;return v.origin.map((o,i)=>o+m[i*3]*x+m[i*3+1]*y+m[i*3+2]*z);}
 export function planeAspect(v,plane){
   const [horizontal,vertical]=plane==='axial'?[0,1]:plane==='coronal'?[0,2]:[1,2];
