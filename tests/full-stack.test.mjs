@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
+test('crosshair is a thin, muted dashed overlay rather than a solid bright stroke',()=>{
+ const app=read('app.mjs');
+ assert.match(app,/ctx\.strokeStyle='rgba\(188,200,210,0\.65\)'/);
+ assert.match(app,/ctx\.lineWidth=w\/\(Math\.max\(1,canvas\.clientWidth\)\*zoom\)/);
+ assert.match(app,/ctx\.setLineDash\(\[4\*ctx\.lineWidth,4\*ctx\.lineWidth\]\)/);
+});
 test('file and folder upload inputs remain keyboard-focusable with visible focus',()=>{
  const html=read('index.html'),css=read('style.css');
  for(const id of ['files','folder']){

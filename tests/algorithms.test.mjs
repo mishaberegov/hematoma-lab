@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom} from '../dist/algorithm.mjs';
+import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom,planeZoomOrigin} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
+test('zoom pivots on the shared cursor pixel in every plane, including flipped superior',()=>{
+ const cursor=[1,2,4];
+ assert.deepEqual(planeZoomOrigin(v,'axial',cursor),[100*1.5/9,100*2.5/9]);
+ assert.deepEqual(planeZoomOrigin(v,'coronal',cursor),[100*1.5/9,100*.5/5]);
+ assert.deepEqual(planeZoomOrigin(v,'sagittal',cursor),[100*2.5/9,100*.5/5]);
+ const inferior={...v,matrix:[.5,0,0,0,.8,0,0,0,-2]};
+ assert.deepEqual(planeZoomOrigin(inferior,'coronal',cursor),[100*1.5/9,100*4.5/5]);
+});
 test('window drag changes level vertically and width horizontally, keeping width positive',()=>{
  assert.deepEqual(dragWindow(60,160,25,-50),{level:28,width:176});
  assert.equal(dragWindow(60,160,-1000,0).width,1);

@@ -12,6 +12,7 @@ export function displayRowIndex(v,plane,b,slice){
  return plane==='axial'?[(z*h+b)*w,1]:plane==='coronal'?[(z*h+slice)*w,1]:[(z*h)*w+slice,w];
 }
 export function displayPlanePixel(v,plane,xyz){const [a,b]=planePixel(plane,xyz);return [a,plane==='axial'?b:displayZ(v,b)];}
+export function planeZoomOrigin(v,plane,xyz){const [a,b]=displayPlanePixel(v,plane,xyz),[w,h]=v.dims;return [100*(a+.5)/(plane==='sagittal'?h:w),100*(b+.5)/(plane==='axial'?h:v.dims[2])];}
 export function worldAt(v,[x,y,z]){const m=v.matrix;return v.origin.map((o,i)=>o+m[i*3]*x+m[i*3+1]*y+m[i*3+2]*z);}
 export function planeAspect(v,plane){
   const [horizontal,vertical]=plane==='axial'?[0,1]:plane==='coronal'?[0,2]:[1,2];
