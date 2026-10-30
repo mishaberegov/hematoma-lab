@@ -1,4 +1,7 @@
 export const index=(dims,x,y,z)=>(z*dims[1]+y)*dims[0]+x;
+export function dragWindow(level,width,dx,dy){const step=Math.max(1,width)/250;return {level:level+dy*step,width:Math.max(1,width+dx*step)};}
+export function dragZoom(zoom,dy){return Math.max(.2,Math.min(6,zoom*Math.exp(-dy*.008)));}
+export function stepPlaneSlice(dims,plane,xyz,direction){const axis=plane==='axial'?2:plane==='coronal'?1:0,next=xyz.slice();next[axis]=Math.max(0,Math.min(dims[axis]-1,next[axis]+Math.sign(direction)));return next;}
 export function voxelFromPlane(plane,a,b,slice){return plane==='axial'?[a,b,slice]:plane==='coronal'?[a,slice,b]:[slice,a,b];}
 export function planePixel(plane,[x,y,z]){return plane==='axial'?[x,y]:plane==='coronal'?[x,z]:[y,z];}
 // DICOM LPS: patient superior is positive Z. Display superior at canvas top.

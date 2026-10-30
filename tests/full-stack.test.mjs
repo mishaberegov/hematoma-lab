@@ -49,13 +49,13 @@ test('late directory traversal cannot replace a newer input or its status',()=>{
 });
 test('a Segment grow or shrink press defers cursor redraw until its preview',()=>{
  const app=read('app.mjs');
- assert.ok(app.includes("const editPreview=$('interaction-segment').checked&&e.button===0&&!e.shiftKey;setCross(xyz,!editPreview)"));
+ assert.ok(app.includes("const editPreview=$('interaction-segment').checked;setCross(xyz,!editPreview)"));
  assert.match(app,/function setCross\(xyz,redraw=true\)/);
  assert.match(app,/preview=localEdit\([^;]+;draw\(\)/);
 });
 test('a Segment seed press draws only the accepted mask, not an intermediate cursor',()=>{
  const app=read('app.mjs');
- assert.ok(app.includes("const editPreview=$('interaction-segment').checked&&e.button===0&&!e.shiftKey;setCross(xyz,!editPreview)"));
+ assert.ok(app.includes("const editPreview=$('interaction-segment').checked;setCross(xyz,!editPreview)"));
  assert.ok(app.includes("if(hits.length>200000){action('Local seed exceeds 200,000 grid voxels: reduce Radius.');draw();return;}"));
  const seed=app.split("if(tool==='seed'){")[1].split('holding={')[0];
  assert.equal((seed.match(/draw\(\)/g)||[]).length,2);

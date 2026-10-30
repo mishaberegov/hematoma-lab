@@ -1,9 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed} from '../dist/algorithm.mjs';
+import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
+test('window drag changes level vertically and width horizontally, keeping width positive',()=>{
+ assert.deepEqual(dragWindow(60,160,25,-50),{level:28,width:176});
+ assert.equal(dragWindow(60,160,-1000,0).width,1);
+});
+test('zoom drag matches registration exponential scaling and limits',()=>{
+ assert.equal(dragZoom(1,-100),Math.exp(.8));
+ assert.equal(dragZoom(6,-100),6);
+ assert.equal(dragZoom(1,1000),.2);
+});
+test('wheel steps only the slice axis of its view and clamps at volume edges',()=>{
+ const shape=[9,9,5],cursor=[4,5,2];
+ assert.deepEqual(stepPlaneSlice(shape,'axial',cursor,1),[4,5,3]);
+ assert.deepEqual(stepPlaneSlice(shape,'coronal',cursor,-1),[4,4,2]);
+ assert.deepEqual(stepPlaneSlice(shape,'sagittal',cursor,1),[5,5,2]);
+ assert.deepEqual(stepPlaneSlice(shape,'axial',[4,5,4],1),[4,5,4]);
+ assert.deepEqual(cursor,[4,5,2]);
+});
 test('three planes map pixel coordinates to same voxel and physical axes',()=>{
   assert.deepEqual(voxelFromPlane('axial',3,4,2),[3,4,2]);
   assert.deepEqual(voxelFromPlane('coronal',3,2,4),[3,4,2]);
