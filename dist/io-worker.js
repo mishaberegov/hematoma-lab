@@ -1,12 +1,6 @@
 importScripts('./vendor/dicomParser.min.js','./vendor/fflate.js');
 let groups=[],slot='',busy=false,zipIndices=new Map();
 const codecs={};
-function measuredDescription(g,describeGroup,measurementGeometry){
-  const description=describeGroup(g);
-  try{description.measurementDepth=measurementGeometry(g).dims[2];}
-  catch{description.measurementDepth=description.frames;}
-  return description;
-}
 function sameZipEntries(a,b){
   return a.length===b.length&&a.every((entry,i)=>['name','method','flags','crc','compressed','original','localOffset'].every(key=>entry[key]===b[i][key]));
 }
@@ -67,9 +61,9 @@ async function codec(type){
   codecs[type]=new module[config[2]]();return codecs[type];
 }
 self.onmessage=async({data})=>{
-  const {parseFile,groupParsed,describeGroup,buildVolume}=await import('./dicom.mjs?v=1.1.4-scan1');
+  const {parseFile,groupParsed,describeGroup}=await import('./dicom.mjs?v=0.2.0');
   const {indexZip,readIndexedEntry}=await import('./zip-index.mjs?v=1.1.6-zipcache1');
-  const {measurementGeometry,buildMeasuredVolume,measurementHeaderFrame}=await import('./measurement.mjs?v=0.1.5');
+  const {buildMeasuredVolume}=await import('./measurement.mjs?v=0.2.0');
   if(busy)return;busy=true;
   try{
     if(data.type==='scan'){
@@ -83,14 +77,14 @@ self.onmessage=async({data})=>{
             slot=data.slot;
             for(const group of groups)for(const frame of group.frames)if(frame.source.zipFile===previous)frame.source.zipFile=file;
             zipIndices=new Map([[file,current]]);
-            self.postMessage({type:'groups',slot,groups:groups.map(g=>measuredDescription(g,describeGroup,measurementGeometry)),skipped:0,errors:[],cachedZip:true,reused:true});
+            self.postMessage({type:'groups',slot,groups:groups.map(describeGroup),skipped:0,errors:[],cachedZip:true,reused:true});
             return;
           }
         }
       }
       groups=[];zipIndices=new Map();slot=data.slot;let parsed=[],errors=[],skipped=0,total=0,declared=0;const budget={total:0};
       const add=(p,source,name,error)=>{
-        if(p){p.frames=p.frames.map(f=>measurementHeaderFrame(f,source));parsed.push(p);}
+        if(p){p.frames=p.frames.map(f=>({cols:f.cols,rows:f.rows,source}));parsed.push(p);}
         else{skipped++;if(errors.length<5)errors.push(error?.message||'В файле нет распознаваемых пикселей DICOM (PixelData).');}
       };
       for(let i=0;i<data.files.length;i++){
@@ -118,7 +112,7 @@ self.onmessage=async({data})=>{
       }
       groups=groupParsed(parsed);
       if(!groups.length)throw Error(`Не найдена подходящая DICOM-серия: проверено ${data.files.length} файлов, пропущено ${skipped}. ${errors[0]||'Ни один файл не распознан как изображение DICOM.'}`);
-      self.postMessage({type:'groups',slot,groups:groups.map(g=>measuredDescription(g,describeGroup,measurementGeometry)),skipped,errors,cachedZip:data.files.length===1&&zipIndices.size===1,reused:false});
+      self.postMessage({type:'groups',slot,groups:groups.map(describeGroup),skipped,errors,cachedZip:data.files.length===1&&zipIndices.size===1,reused:false});
     }else if(data.type==='build'){
       const group=groups.find(g=>g.key===data.key);if(!group)throw Error('Серия не найдена. Выбери файлы повторно.');
       const sources=[...new Set(group.frames.map(f=>f.source))],parsed=[];
@@ -149,7 +143,7 @@ self.onmessage=async({data})=>{
       }
       if(parsed.length!==sources.length||parsed.some(p=>!p||p.key!==group.key))throw Error('Не удалось повторно прочитать выбранную серию.');
       const selected=groupParsed(parsed)[0];
-      const volume=await buildMeasuredVolume(selected,{codec,sliceRange:data.sliceRange,onProgress:f=>self.postMessage({type:'progress',slot,text:'Source CT',fraction:f})});
+      const volume=await buildMeasuredVolume(selected,{codec,onProgress:f=>self.postMessage({type:'progress',slot,text:'Full CT stack',fraction:f})});
       self.postMessage({type:'volume',slot,volume},[volume.data.buffer]);
     }
   }catch(e){self.postMessage({type:'error',slot,message:e.message||String(e)});}finally{busy=false;}

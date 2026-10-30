@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {measurementGeometry,buildMeasuredVolume,maxSourceSlices,measurementHeaderFrame} from '../dist/measurement.mjs';
+import {measurementGeometry,buildMeasuredVolume,planReducedGrid} from '../dist/measurement.mjs';
 const make=(positions)=>({name:'test',modality:'CT',frameUID:'1',ts:'1.2.840.10008.1.2.1',frames:positions.map((z,i)=>({ipp:[0,0,z],iop:[1,0,0,0,1,0],norm:[0,0,1],spacing:[.5,.5],rows:2,cols:2,thickness:1,slope:1,intercept:-1024,huCalibrated:true,ds:{string:()=>''},index:i}))});
 test('regular CT source slices remain Float32 and source dimensions',async()=>{
  const g=make([0,1,2]);const geometry=measurementGeometry(g);assert.deepEqual(geometry.dims,[2,2,3]);
@@ -49,23 +49,27 @@ test('a seam across distinct studies or frames remains blocked',()=>{
  g.frames[2].ds={string:tag=>tag==='x0020000d'?'other-study':'frame-1'};
  assert.throws(()=>measurementGeometry(g),/duplicate/i);
 });
-test('explicit source slice range preserves voxel size and origin without downsampling',async()=>{
- const positions=[...Array.from({length:319},(_,i)=>i),...Array.from({length:401},(_,i)=>i+318)];
- const g=seamGroup(positions,[...Array(319).fill(1),...Array(401).fill(2)]);
- g.frames.forEach(f=>{f.cols=512;f.rows=512});
- await assert.rejects(buildMeasuredVolume(g,{decode:async()=>new Float32Array(512*512)}),/60 million/);
- const v=await buildMeasuredVolume(g,{sliceRange:[500,501],decode:async f=>new Float32Array(512*512).fill(f.index)});
- assert.deepEqual(v.dims,[512,512,2]);assert.deepEqual(v.origin,[0,0,500]);
- assert.equal(v.matrix[8],1);assert.equal(v.data[0],501);assert.equal(v.data[512*512],502);
- assert.match(v.warnings.join(' '),/только к выбранной области/);
+test('a 720-file shared-seam series automatically fits the whole 719-slice depth',()=>{
+ const plan=planReducedGrid(512,512,719,60000000);
+ assert.equal(plan.factor,2);assert.deepEqual(plan.dims,[256,256,719]);
+ assert.equal(plan.dims[2],719);
 });
-test('source-grid budget advertises exact maximum whole slices before decoding',()=>{
- assert.equal(maxSourceSlices([512,512,720]),228);
- assert.equal(maxSourceSlices([16,16,5]),5);
+
+test('automatic reduction retains every Z position, averages finite source pixels, and reports derived geometry',async()=>{
+ const g=make([0,1,2]);g.frames.forEach(f=>{f.cols=5;f.rows=3});
+ const pixels=Float32Array.from([0,2,4,6,8,10,12,14,16,18,20,22,24,26,28]);
+ const v=await buildMeasuredVolume(g,{maxVoxels:18,decode:async()=>pixels});
+ assert.deepEqual(v.dims,[3,2,3]);assert.deepEqual(v.sourceDims,[5,3,3]);
+ assert.equal(v.reductionFactor,2);assert.deepEqual(v.origin,[.25,.25,0]);
+ assert.deepEqual(v.matrix,[1,0,0,0,1,0,0,0,1]);
+ assert.deepEqual(Array.from(v.data.slice(0,6)),[6,10,13,21,25,28]);
+ assert.equal(v.data[6],6);assert.equal(v.data[12],6);
+ assert.match(v.warnings.join(' '),/приблизительн/);
+ assert.match(v.warnings.join(' '),/5×3×3.*3×2×3/);
 });
-test('header-only group describes the same measured depth after seam resolution',()=>{
- const positions=[...Array.from({length:319},(_,i)=>i),...Array.from({length:401},(_,i)=>i+318)];
- const g=seamGroup(positions,[...Array(319).fill(1),...Array(401).fill(2)]);
- g.frames=g.frames.map(f=>measurementHeaderFrame(f,{name:'synthetic.dcm'}));
- assert.equal(measurementGeometry(g).dims[2],719);
+test('automatic reduction ignores padding NaNs but preserves all-NaN source blocks',async()=>{
+ const g=make([0,1]);g.frames.forEach(f=>{f.cols=4;f.rows=4});
+ const pixels=Float32Array.from([NaN,2,NaN,NaN,4,6,NaN,NaN,8,10,12,14,16,18,20,22]);
+ const v=await buildMeasuredVolume(g,{maxVoxels:8,decode:async()=>pixels});
+ assert.deepEqual(v.dims,[2,2,2]);assert.equal(v.data[0],4);assert(Number.isNaN(v.data[1]));
 });

@@ -1,9 +1,12 @@
-import {decodeFrame} from './dicom.mjs';
+import {decodeFrame} from './dicom.mjs?v=0.2.0';
 const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
-export const maxSourceSlices=([width,height,depth])=>Math.min(depth,Math.floor(60000000/(width*height)));
-export function measurementHeaderFrame(f,source){
- const study=f.ds.string('x0020000d'),ref=f.ds.string('x00200052');
- return {cols:f.cols,rows:f.rows,ipp:f.ipp,iop:f.iop,spacing:f.spacing,acquisition:f.acquisition,huCalibrated:f.huCalibrated,slope:f.slope,intercept:f.intercept,ds:{string:tag=>tag==='x0020000d'?study:tag==='x00200052'?ref:''},source};
+export function planReducedGrid(width,height,depth,budget=60000000){
+ if(!Number.isSafeInteger(budget)||budget<1)throw Error('Invalid volume budget.');
+ let factor=1;
+ while(Math.ceil(width/factor)*Math.ceil(height/factor)*depth>budget&&factor<Math.max(width,height))factor++;
+ const dims=[Math.ceil(width/factor),Math.ceil(height/factor),depth];
+ if(dims.reduce((a,b)=>a*b,1)>budget)throw Error('Source grid exceeds memory budget even after in-plane reduction.');
+ return {factor,dims};
 }
 export function measurementGeometry(g){
  if(g.modality!=='CT')throw Error('Only CT with calibrated HU supports measurement.');
@@ -37,16 +40,27 @@ export function measurementGeometry(g){
  if(Math.abs(dot(dz,normal)-step)>.05)throw Error('Invalid slice axis.');
  return {frames,seamRemoved,dims:[first.cols,first.rows,frames.length],origin:first.ipp.slice(),matrix:[u[0]*first.spacing[1],v[0]*first.spacing[0],dz[0],u[1]*first.spacing[1],v[1]*first.spacing[0],dz[1],u[2]*first.spacing[1],v[2]*first.spacing[0],dz[2]]};
 }
-export async function buildMeasuredVolume(g,{decode=decodeFrame,onProgress=()=>{},codec,sliceRange=null}={}){
- const geo=measurementGeometry(g),[w,h,sourceDepth]=geo.dims;
- const [start,end]=sliceRange??[0,sourceDepth-1];
- if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end>=sourceDepth||end-start<1)throw Error('Select at least two source slices within the series.');
- const selected=geo.frames.slice(start,end+1),d=selected.length,n=w*h*d;
- if(n>60000000)throw Error('Source grid exceeds 60 million voxels; no downsampling for measurement.');
+export async function buildMeasuredVolume(g,{decode=decodeFrame,onProgress=()=>{},codec,maxVoxels=60000000}={}){
+ const geo=measurementGeometry(g),[w,h,d]=geo.dims,selected=geo.frames;
+ const {factor,dims}=planReducedGrid(w,h,d,maxVoxels),n=dims.reduce((a,b)=>a*b,1);
+ const matrix=geo.matrix.map((v,i)=>i%3===2?v:v*factor);
+ const origin=geo.origin.map((v,i)=>v+(factor-1)*(geo.matrix[i*3]+geo.matrix[i*3+1])/2);
+ const stride=dims[0]*dims[1];
  const data=new Float32Array(n);
- for(let z=0;z<d;z++){const pixels=await decode(selected[z],{codec});if(pixels.length!==w*h)throw Error('Decoded slice size mismatch.');data.set(pixels,z*w*h);onProgress((z+1)/d);}
+ for(let z=0;z<d;z++){
+  const pixels=await decode(selected[z],{codec});if(pixels.length!==w*h)throw Error('Decoded slice size mismatch.');
+  if(factor===1)data.set(pixels,z*stride);
+  else for(let y=0;y<dims[1];y++)for(let x=0;x<dims[0];x++){
+   let sum=0,count=0;
+   for(let yy=y*factor;yy<Math.min((y+1)*factor,h);yy++)for(let xx=x*factor;xx<Math.min((x+1)*factor,w);xx++){
+    const value=pixels[yy*w+xx];if(Number.isFinite(value)){sum+=value;count++;}
+   }
+   data[z*stride+y*dims[0]+x]=count?sum/count:NaN;
+  }
+  onProgress((z+1)/d);
+ }
  const warnings=[];
  if(geo.seamRemoved)warnings.push('Две последовательные съёмки перекрываются на одном срезе. Один граничный срез исключён; проверь область стыка перед оценкой объёма.');
- if(sliceRange)warnings.push(`Загружены срезы ${start}–${end} из ${sourceDepth}; объём относится только к выбранной области.`);
- return {dims:[w,h,d],matrix:geo.matrix,origin:selected[0].ipp.slice(),data,name:g.name,modality:g.modality,synthetic:false,warnings};
+ if(factor>1)warnings.push(`Большая серия: пиксели усреднены в плоскости ${factor}×${factor} (с ${[w,h,d].join('×')} до ${dims.join('×')}); все исходные позиции срезов по Z сохранены. Сегментация и объём приблизительные: тонкие очаги и границы могли измениться. Исходные DICOM не изменены.`);
+ return {dims,matrix,origin,data,name:g.name,modality:g.modality,synthetic:false,warnings,sourceDims:[w,h,d],reductionFactor:factor};
 }

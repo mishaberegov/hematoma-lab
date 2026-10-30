@@ -56,3 +56,11 @@ test('CT seed is 3D connected, never selects disconnected bone or remote blood',
   const hits=autoSeed(volume,[4,4,2],30,100);
   assert.deepEqual(hits.sort((a,b)=>a-b),[at(4,4,2),at(4,4,3)].sort((a,b)=>a-b));
 });
+test('derived-grid volume weights partial edge blocks by their actual source-pixel area',()=>{
+ const derived={dims:[3,2,3],matrix:[1,0,0,0,1,0,0,0,1],sourceDims:[5,3,3],reductionFactor:2};
+ const mask=new Uint8Array(18);mask[index(derived.dims,0,0,0)]=1;mask[index(derived.dims,2,1,0)]=2;
+ const m=volumes(mask,derived);
+ assert.equal(m[1],4*.5*.5/1000);assert.equal(m[2],.5*.5/1000);
+ mask.fill(1);
+ assert.equal(volumes(mask,derived).total,5*3*3*.5*.5/1000);
+});

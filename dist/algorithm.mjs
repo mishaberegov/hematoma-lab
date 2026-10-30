@@ -43,6 +43,14 @@ export function history(mask){const undoStack=[],redoStack=[];return {
   redo(){const changes=redoStack.pop();if(!changes)return false;for(const [i,,next] of changes)mask[i]=next;undoStack.push(changes);return true;}
 };}
 export function volumes(mask,v){const m=v.matrix;const voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000;
-  const counts={};for(const label of mask)if(label)counts[label]=(counts[label]||0)+1;
-  const out={total:0};for(const [label,count] of Object.entries(counts)){out[label]=count*voxel;out.total+=out[label];}return out;
+  const factor=v.reductionFactor||1,counts={};
+  if(factor===1){for(const label of mask)if(label)counts[label]=(counts[label]||0)+1;}
+  else{const [w,h]=v.dims,[sourceWidth,sourceHeight]=v.sourceDims;
+   for(let i=0;i<mask.length;i++){const label=mask[i];if(!label)continue;
+    const x=i%w,y=Math.floor(i/w)%h;
+    counts[label]=(counts[label]||0)+Math.min(factor,sourceWidth-x*factor)*Math.min(factor,sourceHeight-y*factor);
+   }
+  }
+  const unit=factor===1?voxel:voxel/(factor*factor),out={total:0};
+  for(const [label,count] of Object.entries(counts)){out[label]=count*unit;out.total+=out[label];}return out;
 }

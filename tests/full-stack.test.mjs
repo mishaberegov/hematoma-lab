@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
+test('large-series UI loads the whole stack without a manual slice range',()=>{
+ const html=read('index.html'),app=read('app.mjs'),worker=read('io-worker.js');
+ assert.doesNotMatch(html,/id="rangeStart"|id="rangeEnd"|id="sliceRange"/);
+ assert.doesNotMatch(app,/configureRange|sliceRange/);
+ assert.doesNotMatch(worker,/sliceRange/);
+ assert.match(app,/reductionFactor/);
+});
