@@ -31,3 +31,9 @@ test('late directory traversal cannot replace a newer input or its status',()=>{
  assert.match(app,/if\(inputGate\.current\(token\)\)scan\(awaitedFiles,isDirectory\)/);
  assert.match(app,/catch\(error\)\{if\(inputGate\.current\(token\)\)status\(/);
 });
+test('a Segment grow or shrink press defers cursor redraw until its preview',()=>{
+ const app=read('app.mjs');
+ assert.match(app,/const editPreview=\$\('interaction-segment'\)\.checked&&e\.button===0&&!e\.shiftKey&&\$\('tool'\)\.value!=='seed';setCross\(xyz,!editPreview\)/);
+ assert.match(app,/function setCross\(xyz,redraw=true\)/);
+ assert.match(app,/preview=localEdit\([^;]+;draw\(\)/);
+});
