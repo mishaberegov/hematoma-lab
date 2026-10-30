@@ -10,7 +10,7 @@ Published page: https://mri.moscow/hematoma-lab/ . To run locally:
 npm test
 npm start
 ```
-Open `http://localhost:8765/` (or serve `dist/` from another localhost static HTTP server). Click **Synthetic demo** to try without patient images. Drag DICOM files, a directory tree, or ZIP onto the page; alternatively choose local files/folder. Select a series then load. No build or npm install needed.
+Open `http://localhost:8765/` (or serve `dist/` from another localhost static HTTP server). Click **Synthetic demo** to try without patient images. Drag DICOM files, a directory tree, or ZIP onto the page; alternatively choose local files/folder. If exactly one eligible CT series is discovered, it loads immediately; with several series, choose one then click Load. No build or npm install needed.
 
 For large source grids (>60 million voxels), the loader automatically averages finite pixels in-plane by the smallest integer factor that fits memory, **keeping every original Z position**. It visibly reports source and reduced dimensions and labels segmentation/volumes as **approximate**: thin blood and edges can change under averaging. No manual slice-range choice is required. There is no missing-slice interpolation or Float16 conversion. Odd-sized images use the actual number of source pixels represented by each partial edge block when converting mask voxels to mL. Original DICOMs are unchanged.
 

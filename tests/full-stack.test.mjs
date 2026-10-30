@@ -9,3 +9,8 @@ test('large-series UI loads the whole stack without a manual slice range',()=>{
  assert.doesNotMatch(worker,/sliceRange/);
  assert.match(app,/reductionFactor/);
 });
+test('a single discovered series builds without asking for a one-option selection',()=>{
+ const app=read('app.mjs');
+ assert.match(app,/data\.groups\.length===1/);
+ assert.match(app,/worker\.postMessage\(\{type:'build',key:data\.groups\[0\]\.key\}\)/);
+});

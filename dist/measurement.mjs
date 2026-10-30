@@ -1,4 +1,4 @@
-import {decodeFrame} from './dicom.mjs?v=0.4.0';
+import {decodeFrame} from './dicom.mjs?v=0.4.1';
 const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
 export function planReducedGrid(width,height,depth,budget=60000000){
  if(!Number.isSafeInteger(budget)||budget<1)throw Error('Invalid volume budget.');
