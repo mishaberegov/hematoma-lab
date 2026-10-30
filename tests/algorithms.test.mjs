@@ -73,6 +73,17 @@ test('CT seed remains local even when normal tissue joins a huge HU-qualified co
  assert(hits.length<3000,'a local seed must not select the whole 512000-voxel component');
  assert(hits.every(i=>{const x=i%80,y=Math.floor(i/80)%80,z=Math.floor(i/6400);return Math.hypot(x-40,y-40,z-40)<=8+1e-7;}));
 });
+test('accepted label changes keep weighted volumes exact through undo and redo',()=>{
+ const grid={dims:[3,2,2],matrix:[1,0,0,0,1,0,0,0,1],sourceDims:[5,3,2],reductionFactor:2};
+ const mask=new Uint8Array(12),h=history(mask,grid),edge=index(grid.dims,2,1,0),center=index(grid.dims,0,0,0);
+ h.commit([center,edge],1);
+ assert.deepEqual(h.volumes(),volumes(mask,grid));
+ h.commit([edge],2);
+ assert.deepEqual(h.volumes(),volumes(mask,grid));
+ h.undo();assert.deepEqual(h.volumes(),volumes(mask,grid));
+ h.undo();assert.deepEqual(h.volumes(),volumes(mask,grid));
+ h.redo();h.redo();assert.deepEqual(h.volumes(),volumes(mask,grid));
+});
 test('derived-grid volume weights partial edge blocks by their actual source-pixel area',()=>{
  const derived={dims:[3,2,3],matrix:[1,0,0,0,1,0,0,0,1],sourceDims:[5,3,3],reductionFactor:2};
  const mask=new Uint8Array(18);mask[index(derived.dims,0,0,0)]=1;mask[index(derived.dims,2,1,0)]=2;

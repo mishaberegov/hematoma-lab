@@ -61,9 +61,9 @@ async function codec(type){
   codecs[type]=new module[config[2]]();return codecs[type];
 }
 self.onmessage=async({data})=>{
-  const {parseFile,groupParsed,describeGroup}=await import('./dicom.mjs?v=0.4.1');
+  const {parseFile,groupParsed,describeGroup}=await import('./dicom.mjs?v=0.4.2');
   const {indexZip,readIndexedEntry}=await import('./zip-index.mjs?v=1.1.6-zipcache1');
-  const {buildMeasuredVolume}=await import('./measurement.mjs?v=0.4.1');
+  const {buildMeasuredVolume}=await import('./measurement.mjs?v=0.4.2');
   if(busy)return;busy=true;
   try{
     if(data.type==='scan'){

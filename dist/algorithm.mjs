@@ -44,10 +44,16 @@ export function autoSeed(v,seed,minHU=30,maxHU=100,radiusMm=8){
   }
   return result;
 }
-export function history(mask){const undoStack=[],redoStack=[];return {
-  commit(indices,label){const changes=indices.filter(i=>mask[i]!==label).map(i=>[i,mask[i],label]);for(const [i,,next] of changes)mask[i]=next;if(changes.length){undoStack.push(changes);redoStack.length=0;}return changes.length;},
-  undo(){const changes=undoStack.pop();if(!changes)return false;for(const [i,old] of changes)mask[i]=old;redoStack.push(changes);return true;},
-  redo(){const changes=redoStack.pop();if(!changes)return false;for(const [i,,next] of changes)mask[i]=next;undoStack.push(changes);return true;}
+export function history(mask,v){const undoStack=[],redoStack=[],counts={};
+  const factor=v?.reductionFactor||1,[w,h]=v?.dims||[0,0],sourceWidth=v?.sourceDims?.[0],sourceHeight=v?.sourceDims?.[1];
+  const weight=i=>factor===1?1:Math.min(factor,sourceWidth-(i%w)*factor)*Math.min(factor,sourceHeight-(Math.floor(i/w)%h)*factor);
+  if(v)for(let i=0;i<mask.length;i++)if(mask[i])counts[mask[i]]=(counts[mask[i]]||0)+weight(i);
+  const apply=(changes,forward)=>{for(const [i,old,next] of changes){const from=forward?old:next,to=forward?next:old;if(v){const n=weight(i);if(from)counts[from]-=n;if(to)counts[to]=(counts[to]||0)+n;}mask[i]=to;}};
+  return {
+  commit(indices,label){const changes=Array.from(new Set(indices)).filter(i=>mask[i]!==label).map(i=>[i,mask[i],label]);apply(changes,true);if(changes.length){undoStack.push(changes);redoStack.length=0;}return changes.length;},
+  undo(){const changes=undoStack.pop();if(!changes)return false;apply(changes,false);redoStack.push(changes);return true;},
+  redo(){const changes=redoStack.pop();if(!changes)return false;apply(changes,true);undoStack.push(changes);return true;},
+  volumes(){if(!v)throw Error('Volume geometry required');const m=v.matrix,voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000,unit=voxel/(factor*factor),out={total:0};for(const [label,count] of Object.entries(counts))if(count){out[label]=count*unit;out.total+=out[label];}return out;}
 };}
 export function volumes(mask,v){const m=v.matrix;const voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000;
   const factor=v.reductionFactor||1,counts={};

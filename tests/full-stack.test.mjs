@@ -9,6 +9,12 @@ test('large-series UI loads the whole stack without a manual slice range',()=>{
  assert.doesNotMatch(worker,/sliceRange/);
  assert.match(app,/reductionFactor/);
 });
+test('UI reads accepted mask volumes from incremental edit history',()=>{
+ const app=read('app.mjs');
+ assert.match(app,/edits=history\(mask,v\)/);
+ assert.match(app,/const m=edits\.volumes\(\)/);
+ assert.doesNotMatch(app,/volumes\(mask,volume\)/);
+});
 test('a single discovered series builds without asking for a one-option selection',()=>{
  const app=read('app.mjs');
  assert.match(app,/data\.groups\.length===1/);
