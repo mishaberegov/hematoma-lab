@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
+test('mouse mode controls wrap instead of overflowing a narrow viewport',()=>{
+ const css=read('style.css');
+ const interaction=css.match(/\.interaction\{([^}]*)\}/)?.[1]||'';
+ assert.match(interaction,/flex-wrap:wrap/);
+ assert.match(interaction,/max-width:100%/);
+});
 test('large-series UI loads the whole stack without a manual slice range',()=>{
  const html=read('index.html'),app=read('app.mjs'),worker=read('io-worker.js');
  assert.doesNotMatch(html,/id="rangeStart"|id="rangeEnd"|id="sliceRange"/);
