@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom,planeZoomOrigin} from '../dist/algorithm.mjs';
+import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom,planeZoomOrigin,proposeFill} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
@@ -11,6 +11,28 @@ test('zoom pivots on the shared cursor pixel in every plane, including flipped s
  assert.deepEqual(planeZoomOrigin(v,'sagittal',cursor),[100*2.5/9,100*.5/5]);
  const inferior={...v,matrix:[.5,0,0,0,.8,0,0,0,-2]};
  assert.deepEqual(planeZoomOrigin(inferior,'coronal',cursor),[100*1.5/9,100*4.5/5]);
+});
+test('marker-guided fill bridges accepted blood spheres only within local HU and marker bounds',()=>{
+ const dims=[32,32,32],data=new Float32Array(32**3).fill(40),mask=new Uint8Array(data.length),m=[1,0,0,0,1,0,0,0,1],volume={dims,data,matrix:m};
+ for(let z=0;z<32;z++)for(let y=0;y<32;y++)for(let x=0;x<32;x++)if(Math.hypot((x-16)/7,(y-16)/7,(z-16)/5)<1)data[index(dims,x,y,z)]=68;
+ const sites=[[10,16,16],[22,16,16],[16,10,16],[16,22,16]],markers=sites.map(xyz=>{const hits=autoSeed(volume,xyz,30,100,2);for(const i of hits)mask[i]=1;return {xyz,label:1,indices:hits};});
+ const before=mask.slice(),result=proposeFill(volume,mask,1,markers,[],6);
+ assert(result.indices.includes(index(dims,16,16,16)),'interior must be suggested');
+ assert(!result.indices.includes(index(dims,1,1,1)),'remote tissue must stay out');
+ assert(result.indices.every(i=>data[i]===68&&before[i]===0));
+ assert.deepEqual(mask,before,'preview must not mutate accepted mask');
+ assert(result.minHU<=68&&result.maxHU>=68);
+});
+test('negative marker blocks a local patch without changing accepted labels',()=>{
+ const dims=[24,24,24],volume={dims,data:new Float32Array(24**3).fill(68),matrix:[1,0,0,0,1,0,0,0,1]},mask=new Uint8Array(24**3),sites=[[8,12,12],[16,12,12],[12,8,12],[12,16,12]];
+ const markers=sites.map(xyz=>{const i=index(dims,...xyz);mask[i]=1;return {xyz,label:1,indices:[i]};});
+ const negative=[12,12,12],negIndex=index(dims,...negative);mask[index(dims,13,12,12)]=2;
+ const result=proposeFill(volume,mask,1,markers,[negative],5);
+ assert(!result.indices.includes(negIndex));
+ assert(!result.indices.includes(index(dims,13,12,12)));
+ assert.equal(mask[negIndex],0);
+ assert.equal(mask[index(dims,13,12,12)],2);
+ assert.deepEqual(proposeFill(volume,mask,1,markers.slice(0,2),[],5).indices,[],'two marks cannot define a 3D ROI');
 });
 test('window drag changes level vertically and width horizontally, keeping width positive',()=>{
  assert.deepEqual(dragWindow(60,160,25,-50),{level:28,width:176});

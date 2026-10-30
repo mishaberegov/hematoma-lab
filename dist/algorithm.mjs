@@ -52,6 +52,49 @@ export function autoSeed(v,seed,minHU=30,maxHU=100,radiusMm=8){
   }
   return result;
 }
+export function proposeFill(v,mask,label,markers,excluded=[],marginMm=8){
+  const empty=reason=>({indices:[],reason,minHU:null,maxHU:null});
+  if(!Number.isFinite(marginMm)||marginMm<=0)return empty('Invalid physical margin.');
+  const positives=markers.filter(m=>m.label===label&&valid(v,m.xyz)&&mask[index(v.dims,...m.xyz)]===label);
+  if(positives.length<3)return empty('Place at least three accepted seed spheres around the target first.');
+  const samples=[];
+  for(const marker of positives){const centerHU=v.data[index(v.dims,...marker.xyz)];for(const i of marker.indices){const hu=v.data[i];if(mask[i]===label&&Number.isFinite(hu)&&Math.abs(hu-centerHU)<=15)samples.push(hu);}}
+  if(samples.length<3)return empty('Not enough accepted CT pixels to estimate a local HU range.');
+  samples.sort((a,b)=>a-b);
+  const quantile=p=>samples[Math.floor((samples.length-1)*p)];
+  let minHU=Math.max(20,quantile(.1)-8),maxHU=Math.min(120,quantile(.9)+8);
+  const negatives=excluded.filter(xyz=>valid(v,xyz));
+  const negativeHU=negatives.map(xyz=>v.data[index(v.dims,...xyz)]).filter(Number.isFinite);
+  if(negativeHU.length){
+    const mean=negativeHU.reduce((a,b)=>a+b,0)/negativeHU.length,positive=quantile(.5);
+    if(mean<positive-8)minHU=Math.max(minHU,(mean+positive)/2);
+    if(mean>positive+8)maxHU=Math.min(maxHU,(mean+positive)/2);
+  }
+  if(minHU>maxHU)return empty('Positive and exclusion samples have incompatible HU.');
+  const spacing=[0,1,2].map(axis=>Math.hypot(v.matrix[axis],v.matrix[axis+3],v.matrix[axis+6]));
+  if(spacing.some(s=>!Number.isFinite(s)||s<=0))return empty('Invalid CT geometry.');
+  const lo=[0,1,2].map(axis=>Math.max(0,Math.min(...positives.map(p=>p.xyz[axis]))-Math.ceil(marginMm/spacing[axis])));
+  const hi=[0,1,2].map(axis=>Math.min(v.dims[axis]-1,Math.max(...positives.map(p=>p.xyz[axis]))+Math.ceil(marginMm/spacing[axis])));
+  if((hi[0]-lo[0]+1)*(hi[1]-lo[1]+1)*(hi[2]-lo[2]+1)>3000000)return empty('Marker region exceeds 3 million grid voxels; place marks more locally.');
+  const blocked=(x,y,z)=>negatives.some(n=>{
+    const d=[x-n[0],y-n[1],z-n[2]],m=v.matrix;
+    return Math.hypot(m[0]*d[0]+m[1]*d[1]+m[2]*d[2],m[3]*d[0]+m[4]*d[1]+m[5]*d[2],m[6]*d[0]+m[7]*d[1]+m[8]*d[2])<=Math.min(3,marginMm/2);
+  });
+  const queue=[],seen=new Set(),indices=[],[w,h]=v.dims;
+  for(const marker of positives)for(const i of marker.indices)if(mask[i]===label&&!seen.has(i)){seen.add(i);queue.push(i);}
+  for(let p=0;p<queue.length;p++){
+    const i=queue[p],x=i%w,y=Math.floor(i/w)%h,z=Math.floor(i/(w*h));
+    for(const j of neighbours(v.dims,i)){
+      if(seen.has(j))continue;seen.add(j);
+      const nx=j%w,ny=Math.floor(j/w)%h,nz=Math.floor(j/(w*h));
+      if(nx<lo[0]||nx>hi[0]||ny<lo[1]||ny>hi[1]||nz<lo[2]||nz>hi[2]||blocked(nx,ny,nz)||mask[j]!==0)continue;
+      const hu=v.data[j];if(!Number.isFinite(hu)||hu<minHU||hu>maxHU)continue;
+      indices.push(j);queue.push(j);
+      if(indices.length>200000)return empty('Proposed fill exceeds 200,000 voxels; add exclusion marks or tighten the marked region.');
+    }
+  }
+  return {indices,minHU,maxHU,reason:indices.length?'':'No connected, HU-matched voxels between the marks.'};
+}
 export function history(mask,v){const undoStack=[],redoStack=[],counts={};
   const factor=v?.reductionFactor||1,[w,h]=v?.dims||[0,0],sourceWidth=v?.sourceDims?.[0],sourceHeight=v?.sourceDims?.[1];
   const weight=i=>factor===1?1:Math.min(factor,sourceWidth-(i%w)*factor)*Math.min(factor,sourceHeight-(Math.floor(i/w)%h)*factor);

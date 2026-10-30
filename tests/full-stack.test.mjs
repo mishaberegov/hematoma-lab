@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
+test('marker-guided fill has separate exclusion, preview, accept and discard controls',()=>{
+ const html=read('index.html'),app=read('app.mjs');
+ for(const id of ['proposeFill','acceptFill','discardFill','clearExclusions'])assert.match(html,new RegExp(`id="${id}"`));
+ assert.match(html,/<option value="exclude">/);
+ assert.match(app,/proposeFill\(volume,mask,label,seedMarkers,exclusionMarkers/);
+ assert.match(app,/edits\.commit\(fillCandidate\.indices,fillCandidate\.label\)/);
+});
 test('crosshair is a thin, muted dashed overlay rather than a solid bright stroke',()=>{
  const app=read('app.mjs');
  assert.match(app,/ctx\.strokeStyle='rgba\(188,200,210,0\.65\)'/);
@@ -53,15 +60,20 @@ test('late directory traversal cannot replace a newer input or its status',()=>{
  assert.match(app,/if\(inputGate\.current\(token\)\)scan\(awaitedFiles,isDirectory\)/);
  assert.match(app,/catch\(error\)\{if\(inputGate\.current\(token\)\)status\(/);
 });
+test('Segment clicks edit at the clicked voxel without moving the 3D cursor',()=>{
+ const app=read('app.mjs');
+ const beforeNav=app.split('const xyz=point(e,plane);')[1].split("if($('interaction-nav').checked)")[0];
+ assert.doesNotMatch(beforeNav,/setCross\(/);
+ const nav=app.split("if($('interaction-nav').checked){")[1].split("const tool=$('tool')")[0];
+ assert.match(nav,/setCross\(xyz\)/);
+});
 test('a Segment grow or shrink press defers cursor redraw until its preview',()=>{
  const app=read('app.mjs');
- assert.ok(app.includes("const editPreview=$('interaction-segment').checked;setCross(xyz,!editPreview)"));
  assert.match(app,/function setCross\(xyz,redraw=true\)/);
  assert.match(app,/preview=localEdit\([^;]+;draw\(\)/);
 });
 test('a Segment seed press draws only the accepted mask, not an intermediate cursor',()=>{
  const app=read('app.mjs');
- assert.ok(app.includes("const editPreview=$('interaction-segment').checked;setCross(xyz,!editPreview)"));
  assert.ok(app.includes("if(hits.length>200000){action('Local seed exceeds 200,000 grid voxels: reduce Radius.');draw();return;}"));
  const seed=app.split("if(tool==='seed'){")[1].split('holding={')[0];
  assert.equal((seed.match(/draw\(\)/g)||[]).length,2);
