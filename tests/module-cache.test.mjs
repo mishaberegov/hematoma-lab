@@ -10,6 +10,7 @@ test('entry and worker pin changed modules to the published release',()=>{
   assert.equal(JSON.parse(read('../package.json')).version,version);
   assert.ok(html.includes(`style.css?v=${version}`),'stylesheet must bypass stale warnings styling');
   assert.ok(app.includes(`from './algorithm.mjs?v=${version}'`),'entry must bypass a cached older volume algorithm');
+  assert.ok(app.includes(`from './adaptive.mjs?v=${version}'`),'entry must bypass a cached older adaptive fill');
   assert.ok(app.includes(`from './drop-files.mjs?v=${version}'`),'entry must bypass a cached older folder reader');
   assert.ok(app.includes(`./io-worker.js?v=${version}`),'worker must match the entry release');
   assert.ok(worker.includes(`import('./measurement.mjs?v=${version}')`),'worker must bypass a cached older measurement module');

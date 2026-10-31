@@ -1,12 +1,15 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
-for(const id of ['adaptivePreview','adaptiveAccept','adaptiveDiscard','adaptiveStatus','adaptiveSensitivity','demoMR'])test(`adaptive comparison has ${id}`,()=>assert.match(html,new RegExp(`id="${id}"`)));
-test('the adaptive seed uses local image content and requires explicit acceptance',()=>{
- assert.match(app,/adaptiveSeed\(volume,xyz/);
+for(const id of ['adaptivePreview','adaptiveAccept','adaptiveDiscard','adaptiveClear','adaptiveStatus','adaptiveSensitivity','demoMR'])test(`adaptive comparison has ${id}`,()=>assert.match(html,new RegExp(`id="${id}"`)));
+test('points are collected without mask edits until one explicit fill proposal and acceptance',()=>{
+ assert.match(html,/<option value="adaptive-exclude"/);
+ assert.match(html,/>Propose fill</);
+ assert.match(app,/const points=tool==='adaptive-seed'\?adaptivePositive:adaptiveNegative/);
+ assert.match(app,/points\.push\(xyz\)/);
+ assert.match(app,/adaptiveFill\(volume,adaptivePositive,adaptiveNegative,mask/);
  assert.match(app,/edits\.commit\(adaptiveCandidate\.indices/);
- assert.match(app,/adaptiveAccept/);
- assert.match(app,/adaptiveDiscard/);
+ assert.doesNotMatch(app,/runAdaptive\(xyz\)/);
 });
 test('MR demo remains explicitly marked synthetic and starts with a useful image window',()=>{
  assert.match(app,/\$\('demoMR'\)/);

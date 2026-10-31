@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {adaptiveSeed} from '../dist/adaptive.mjs';
+import {adaptiveSeed,adaptiveFill} from '../dist/adaptive.mjs';
 
 const dims=[25,25,21],matrix=[.8,0,0,0,.8,0,0,0,1.5];
 const idx=(x,y,z)=>(z*dims[1]+y)*dims[0]+x;
@@ -37,4 +37,27 @@ test('low local contrast is disclosed, not silently called a good border',()=>{
 test('invalid clicks and too-large local ROI fail without an accepted mask',()=>{
  const {volume}=fixture();assert.equal(adaptiveSeed(volume,[-1,12,10],8).status,'blocked');
  assert.equal(adaptiveSeed(volume,[12,12,10],18,50,{maxNodes:100}).status,'blocked');
+});
+test('multiple unaccepted points yield one clipped fill without mutating the accepted mask',()=>{
+ const {volume,inside}=fixture();const mask=new Uint8Array(volume.data.length);
+ const result=adaptiveFill(volume,[[11,12,10],[14,12,10],[12,14,10]],[],mask,8,50);
+ assert.equal(result.status,'ok');assert(result.indices.length>100);
+ assert(result.indices.every(i=>inside(...xyz(i))));
+ assert.equal(mask.reduce((a,b)=>a+b,0),0);
+ assert(result.minIntensity>30&&result.maxIntensity<100);
+});
+test('calcium and water in marker neighborhoods do not force a wider corridor',()=>{
+ const {volume,inside}=fixture(),mask=new Uint8Array(volume.data.length);
+ for(const [x,y,z,value] of [[11,12,10,900],[12,12,10,-300],[13,12,10,900],[14,12,10,0]])volume.data[volume.dims[0]*volume.dims[1]*z+volume.dims[0]*y+x]=value;
+ const result=adaptiveFill(volume,[[11,12,10],[14,12,10],[12,14,10]],[],mask,8,50);
+ assert.equal(result.status,'ok');assert(result.minIntensity>40&&result.maxIntensity<100);
+ assert(result.indices.every(i=>inside(...xyz(i))));
+});
+test('background points exclude a local patch without accepting any voxels',()=>{
+ const {volume,inside}=fixture(),mask=new Uint8Array(volume.data.length),negative=[16,12,10],ni=volume.dims[0]*volume.dims[1]*negative[2]+volume.dims[0]*negative[1]+negative[0];
+ const baseline=adaptiveFill(volume,[[11,12,10],[14,12,10],[12,14,10]],[],mask,8,50);
+ const guided=adaptiveFill(volume,[[11,12,10],[14,12,10],[12,14,10]],[negative],mask,8,50);
+ assert.equal(guided.status,'ok');assert(baseline.indices.includes(ni));assert(!guided.indices.includes(ni));
+ assert(guided.indices.every(i=>inside(...xyz(i))));assert.equal(mask.reduce((a,b)=>a+b,0),0);
+ assert.match(guided.warning,/overlap/);
 });
