@@ -1,4 +1,4 @@
-import {decodeFrame} from './dicom.mjs?v=0.5.3';
+import {decodeFrame} from './dicom.mjs?v=0.6.0';
 const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
 export function planReducedGrid(width,height,depth,budget=60000000){
  if(!Number.isSafeInteger(budget)||budget<1)throw Error('Invalid volume budget.');
@@ -9,9 +9,9 @@ export function planReducedGrid(width,height,depth,budget=60000000){
  return {factor,dims};
 }
 export function measurementGeometry(g){
- if(g.modality!=='CT')throw Error('Only CT with calibrated HU supports measurement.');
+ if(!['CT','MR'].includes(g.modality))throw Error('Only CT and MR image series are supported.');
  if(g.frames.length<2)throw Error('At least two slices required for measured volume.');
- if(['1.2.840.10008.1.2.4.50','1.2.840.10008.1.2.4.81','1.2.840.10008.1.2.4.91'].includes(g.ts))throw Error('Lossy compressed CT is not accepted for measurement.');
+ if(['1.2.840.10008.1.2.4.50','1.2.840.10008.1.2.4.81','1.2.840.10008.1.2.4.91'].includes(g.ts))throw Error('Lossy compressed image is not accepted for measurement.');
  const f=g.frames[0],u=f.iop.slice(0,3),v=f.iop.slice(3),normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
  const frames=[...g.frames].sort((a,b)=>dot(a.ipp,normal)-dot(b.ipp,normal));let seamRemoved=0;
  if(Math.abs(dot(u,u)-1)>.005||Math.abs(dot(v,v)-1)>.005||Math.abs(dot(u,v))>.005)throw Error('Invalid orientation.');
@@ -30,7 +30,7 @@ export function measurementGeometry(g){
   }
  }
  const first=frames[0];
- for(const q of frames){if(q.rows!==first.rows||q.cols!==first.cols||q.spacing.some((x,i)=>!Number.isFinite(x)||x<=0||Math.abs(x-first.spacing[i])>.001)||q.iop.some((x,i)=>Math.abs(x-first.iop[i])>.001))throw Error('Mixed orientation or spacing.');if(!q.huCalibrated||!Number.isFinite(q.slope)||!Number.isFinite(q.intercept)||q.slope===0)throw Error('Missing valid HU calibration (Rescale Slope/Intercept).');}
+ for(const q of frames){if(q.rows!==first.rows||q.cols!==first.cols||q.spacing.some((x,i)=>!Number.isFinite(x)||x<=0||Math.abs(x-first.spacing[i])>.001)||q.iop.some((x,i)=>Math.abs(x-first.iop[i])>.001))throw Error('Mixed orientation or spacing.');if(!Number.isFinite(q.slope)||!Number.isFinite(q.intercept)||q.slope===0||(g.modality==='CT'&&!q.huCalibrated))throw Error(g.modality==='CT'?'Missing valid HU calibration (Rescale Slope/Intercept).':'Invalid MR intensity scaling.');}
  const positions=frames.map(q=>dot(q.ipp.map((x,i)=>x-first.ipp[i]),normal));const gaps=positions.slice(1).map((p,i)=>p-positions[i]);
  if(gaps.some(x=>x<.01))throw Error('Duplicate slice positions.');
  const step=gaps.reduce((a,b)=>a+b,0)/gaps.length;

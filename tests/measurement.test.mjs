@@ -11,8 +11,14 @@ test('in-plane drift and duplicate slice are rejected',()=>{
  const drift=make([0,1,2]);drift.frames[1].ipp[0]=.3;assert.throws(()=>measurementGeometry(drift),/drift|offset/i);
  assert.throws(()=>measurementGeometry(make([0,1,1])),/duplicate/i);
 });
-test('non CT and single slice cannot yield measured volume',()=>{
- const mr=make([0,1]);mr.modality='MR';assert.throws(()=>measurementGeometry(mr),/CT/);
+test('regular MR without HU calibration still has measurable physical geometry',async()=>{
+ const mr=make([0,1,2]);mr.modality='MR';for(const f of mr.frames){f.huCalibrated=false;f.slope=1;f.intercept=0;}
+ const geo=measurementGeometry(mr);assert.deepEqual(geo.dims,[2,2,3]);
+ const volume=await buildMeasuredVolume(mr,{decode:async f=>new Float32Array(4).fill(870+f.index)});
+ assert.equal(volume.modality,'MR');assert.equal(volume.data[8],872);
+});
+test('unsupported modality and single slice cannot yield measured volume',()=>{
+ const other=make([0,1]);other.modality='PT';assert.throws(()=>measurementGeometry(other),/CT|MR/);
  assert.throws(()=>measurementGeometry(make([0])),/two slices/i);
 });
 test('missing rescale tags cannot masquerade as calibrated HU',()=>{
