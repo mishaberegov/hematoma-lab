@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom,planeZoomOrigin,proposeFill} from '../dist/algorithm.mjs';
+import {spawnSync} from 'node:child_process';
+import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom,planeZoomOrigin,proposeFill,proposalVolumeMl} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
@@ -22,6 +23,32 @@ test('marker-guided fill bridges accepted blood spheres only within local HU and
  assert(result.indices.every(i=>data[i]===68&&before[i]===0));
  assert.deepEqual(mask,before,'preview must not mutate accepted mask');
  assert(result.minHU<=68&&result.maxHU>=68);
+});
+test('a proposal larger than 200,000 voxels remains visible and complete',()=>{
+ const dims=[64,64,64],data=new Float32Array(64**3).fill(68),mask=new Uint8Array(data.length),volume={dims,data,matrix:[1,0,0,0,1,0,0,0,1]};
+ const centers=[[20,20,20],[40,20,20],[20,40,40]],markers=centers.map(xyz=>{const i=index(dims,...xyz);mask[i]=1;return {xyz,label:1,indices:[i]};});
+ const result=proposeFill(volume,mask,1,markers,[],60);
+ assert.equal(result.indices.length,64**3-centers.length);
+ assert.equal(result.reason,'');
+ assert.match(result.warning,/200,000|large/i);
+ assert.equal(mask.reduce((n,x)=>n+x,0),centers.length,'a preview does not commit');
+});
+test('widely spaced markers do not reject a sparse fill solely for a 3-million-voxel box',()=>{
+ const dims=[180,180,180],data=new Float32Array(180**3),mask=new Uint8Array(data.length),volume={dims,data,matrix:[1,0,0,0,1,0,0,0,1]};
+ const centers=[[20,20,20],[150,20,20],[20,150,150]],markers=centers.map(xyz=>{const i=index(dims,...xyz);data[i]=68;mask[i]=1;return {xyz,label:1,indices:[i]};});
+ const next=index(dims,21,20,20);data[next]=68;
+ const result=proposeFill(volume,mask,1,markers);
+ assert.deepEqual(result.indices,[next]);
+ assert.equal(result.reason,'');
+ assert.match(result.warning,/large search region/i);
+});
+test('large proposal commit and undo fit a bounded JS heap',()=>{
+ const script=`import {history} from ${JSON.stringify(new URL('../dist/algorithm.mjs',import.meta.url).href)};
+ const n=2000000,mask=new Uint8Array(n),v={dims:[n,1,1],matrix:[1,0,0,0,1,0,0,0,1]};
+ const positions=Array.from({length:n},(_,i)=>i),edits=history(mask,v);
+ if(edits.commit(positions,1)!==n||mask[n-1]!==1||!edits.undo()||mask[n-1]!==0||!edits.redo()||mask[n-1]!==1)process.exit(2);`;
+ const run=spawnSync(process.execPath,['--max-old-space-size=128','--input-type=module','-e',script],{timeout:30000,encoding:'utf8'});
+ assert.equal(run.status,0,`large commit failed: ${run.error||run.stderr?.slice(-600)}`);
 });
 test('negative marker blocks a local patch without changing accepted labels',()=>{
  const dims=[24,24,24],volume={dims,data:new Float32Array(24**3).fill(68),matrix:[1,0,0,0,1,0,0,0,1]},mask=new Uint8Array(24**3),sites=[[8,12,12],[16,12,12],[12,8,12],[12,16,12]];
@@ -166,6 +193,13 @@ test('accepted label changes keep weighted volumes exact through undo and redo',
  h.undo();assert.deepEqual(h.volumes(),volumes(mask,grid));
  h.undo();assert.deepEqual(h.volumes(),volumes(mask,grid));
  h.redo();h.redo();assert.deepEqual(h.volumes(),volumes(mask,grid));
+});
+test('proposal volume reports physical mL including reduced-grid partial edge blocks',()=>{
+ const original={dims:[2,2,1],matrix:[1,0,0,0,1,0,0,0,2]};
+ assert.equal(proposalVolumeMl([0,1],original),.004);
+ const reduced={dims:[3,2,1],matrix:[.5,0,0,0,.5,0,0,0,3],reductionFactor:2,sourceDims:[5,3,1]};
+ const edge=index(reduced.dims,2,1,0),center=index(reduced.dims,0,0,0);
+ assert.equal(proposalVolumeMl([edge,center],reduced),5*3*.5*.5/4/1000);
 });
 test('derived-grid volume weights partial edge blocks by their actual source-pixel area',()=>{
  const derived={dims:[3,2,3],matrix:[1,0,0,0,1,0,0,0,1],sourceDims:[5,3,3],reductionFactor:2};

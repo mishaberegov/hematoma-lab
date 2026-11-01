@@ -77,12 +77,12 @@ export function proposeFill(v,mask,label,markers,excluded=[],marginMm=8,sensitiv
   if(spacing.some(s=>!Number.isFinite(s)||s<=0))return empty('Invalid CT geometry.');
   const lo=[0,1,2].map(axis=>Math.max(0,Math.min(...positives.map(p=>p.xyz[axis]))-Math.ceil(marginMm/spacing[axis])));
   const hi=[0,1,2].map(axis=>Math.min(v.dims[axis]-1,Math.max(...positives.map(p=>p.xyz[axis]))+Math.ceil(marginMm/spacing[axis])));
-  if((hi[0]-lo[0]+1)*(hi[1]-lo[1]+1)*(hi[2]-lo[2]+1)>3000000)return empty('Marker region exceeds 3 million grid voxels; place marks more locally.');
+  const searchVoxels=(hi[0]-lo[0]+1)*(hi[1]-lo[1]+1)*(hi[2]-lo[2]+1);
   const blocked=(x,y,z)=>negatives.some(n=>{
     const d=[x-n[0],y-n[1],z-n[2]],m=v.matrix;
     return Math.hypot(m[0]*d[0]+m[1]*d[1]+m[2]*d[2],m[3]*d[0]+m[4]*d[1]+m[5]*d[2],m[6]*d[0]+m[7]*d[1]+m[8]*d[2])<=Math.min(3,marginMm/2);
   });
-  const queue=[],seen=new Set(),indices=[],[w,h]=v.dims;
+  const queue=[],seen=new Set(),indices=[],[w,h]=v.dims;let touchesBoundary=false;
   for(const marker of positives)for(const i of marker.indices)if(mask[i]===label&&!seen.has(i)){seen.add(i);queue.push(i);}
   for(let p=0;p<queue.length;p++){
     const i=queue[p],x=i%w,y=Math.floor(i/w)%h,z=Math.floor(i/(w*h));
@@ -92,18 +92,30 @@ export function proposeFill(v,mask,label,markers,excluded=[],marginMm=8,sensitiv
       if(nx<lo[0]||nx>hi[0]||ny<lo[1]||ny>hi[1]||nz<lo[2]||nz>hi[2]||blocked(nx,ny,nz)||mask[j]!==0)continue;
       const hu=v.data[j];if(!Number.isFinite(hu)||hu<minHU||hu>maxHU)continue;
       indices.push(j);queue.push(j);
-      if(indices.length>200000)return empty('Proposed fill exceeds 200,000 voxels; add exclusion marks or tighten the marked region.');
+      if(nx===lo[0]||nx===hi[0]||ny===lo[1]||ny===hi[1]||nz===lo[2]||nz===hi[2])touchesBoundary=true;
     }
   }
-  return {indices,minHU,maxHU,reason:indices.length?'':'No connected, HU-matched voxels between the marks.'};
+  const warnings=[];
+  if(searchVoxels>3000000)warnings.push('Large search region exceeds the former 3-million-voxel limit.');
+  if(indices.length>200000)warnings.push('Large proposal exceeds the former 200,000-voxel limit.');
+  if(touchesBoundary)warnings.push('Proposal touches the search boundary; it may be clipped or include non-blood tissue.');
+  return {indices,minHU,maxHU,reason:indices.length?'':'No connected, HU-matched voxels between the marks.',warning:warnings.join(' ')};
+}
+export function proposalVolumeMl(indices,v){
+ const m=v.matrix,voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000;
+ const factor=v.reductionFactor||1;if(factor===1)return indices.length*voxel;
+ const [w]=v.dims,[sourceWidth,sourceHeight]=v.sourceDims;let sourcePixels=0;
+ for(const i of indices){const x=i%w,y=Math.floor(i/w)%v.dims[1];sourcePixels+=Math.min(factor,sourceWidth-x*factor)*Math.min(factor,sourceHeight-y*factor);}
+ return sourcePixels*voxel/(factor*factor);
 }
 export function history(mask,v){const undoStack=[],redoStack=[],counts={};
   const factor=v?.reductionFactor||1,[w,h]=v?.dims||[0,0],sourceWidth=v?.sourceDims?.[0],sourceHeight=v?.sourceDims?.[1];
   const weight=i=>factor===1?1:Math.min(factor,sourceWidth-(i%w)*factor)*Math.min(factor,sourceHeight-(Math.floor(i/w)%h)*factor);
   if(v)for(let i=0;i<mask.length;i++)if(mask[i])counts[mask[i]]=(counts[mask[i]]||0)+weight(i);
-  const apply=(changes,forward)=>{for(const [i,old,next] of changes){const from=forward?old:next,to=forward?next:old;if(v){const n=weight(i);if(from)counts[from]-=n;if(to)counts[to]=(counts[to]||0)+n;}mask[i]=to;}};
+  const change=(i,from,to)=>{if(v){const n=weight(i);if(from)counts[from]-=n;if(to)counts[to]=(counts[to]||0)+n;}mask[i]=to;};
+  const apply=(changes,forward)=>{const {positions,previous,next}=changes;for(let k=0;k<positions.length;k++)change(positions[k],forward?previous[k]:next,forward?next:previous[k]);};
   return {
-  commit(indices,label){const changes=Array.from(new Set(indices)).filter(i=>mask[i]!==label).map(i=>[i,mask[i],label]);apply(changes,true);if(changes.length){undoStack.push(changes);redoStack.length=0;}return changes.length;},
+  commit(indices,label){const positions=new Uint32Array(indices.length),previous=new Uint8Array(indices.length);let count=0;for(const i of indices){if(mask[i]===label)continue;positions[count]=i;previous[count]=mask[i];change(i,previous[count],label);count++;}if(count){undoStack.push({positions:count===positions.length?positions:positions.slice(0,count),previous:count===previous.length?previous:previous.slice(0,count),next:label});redoStack.length=0;}return count;},
   undo(){const changes=undoStack.pop();if(!changes)return false;apply(changes,false);redoStack.push(changes);return true;},
   redo(){const changes=redoStack.pop();if(!changes)return false;apply(changes,true);undoStack.push(changes);return true;},
   volumes(){if(!v)throw Error('Volume geometry required');const m=v.matrix,voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000,unit=voxel/(factor*factor),out={total:0};for(const [label,count] of Object.entries(counts))if(count){out[label]=count*unit;out.total+=out[label];}return out;}
