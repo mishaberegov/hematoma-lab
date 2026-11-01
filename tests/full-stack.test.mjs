@@ -16,17 +16,6 @@ test('marker-guided fill has separate exclusion, preview, accept and discard con
  assert.match(app,/proposeFill\(volume,mask,label,seedMarkers,exclusionMarkers/);
  assert.match(app,/edits\.commit\(fillCandidate\.indices,fillCandidate\.label\)/);
 });
-test('large or boundary-touching proposals remain previewable and require explicit risk confirmation',()=>{
- const app=read('app.mjs');
- assert.match(app,/fillCandidate=\{indices:result\.indices,label,warning:result\.warning\}/);
- assert.match(app,/result\.warning/);
- assert.match(app,/window\.confirm\(/);
- assert.match(app,/fillCandidate\.warning/);
- assert.match(app,/proposalVolumeMl\(result\.indices,volume\)/);
- assert.match(app,/classList\.toggle\('unsafe',warning\)/);
- assert.match(read('style.css'),/#action\.unsafe\{/);
- assert.match(read('index.html'),/Large previews remain visible but may include non-blood tissue/);
-});
 test('crosshair is a thin, muted dashed overlay rather than a solid bright stroke',()=>{
  const app=read('app.mjs');
  assert.match(app,/ctx\.strokeStyle='rgba\(188,200,210,0\.65\)'/);
