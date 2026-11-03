@@ -19,6 +19,20 @@ test('binary target remains one label while legacy CT tools are selected',()=>{
  assert.doesNotMatch(app,/options\[0\]\.textContent=mr\|\|adaptive\?'Target lesion':'Intraparenchymal'/);
  assert.match(app,/span\.textContent='Target lesion: '/);
 });
+test('reset segmentation is explicit, undoable, and preserves loaded image',()=>{
+ assert.match(html,/<button id="resetSegmentation"[^>]*>Clear mask and points<\/button>/);
+ assert.match(app,/\$\('resetSegmentation'\)\.onclick=/);
+ assert.match(app,/confirm\(/);
+ assert.match(app,/mask=new Uint8Array\(volume\.data\.length\)/);
+ assert.match(app,/edits=history\(mask,volume\)/);
+ assert.match(app,/recordAction\(/);
+});
+test('Undo tracks target and background point placement, not only mask edits',()=>{
+ assert.match(app,/function recordAction\(/);
+ assert.match(app,/points\.push\(xyz\);recordAction\(/);
+ assert.match(app,/\$\('undo'\)\.onclick=\(\)=>\{[^}]*undoActions\.pop\(\)/);
+ assert.match(app,/\$\('redo'\)\.onclick=\(\)=>\{[^}]*redoActions\.pop\(\)/);
+});
 test('oversized proposal is reported as diagnostic with no Accept',()=>{
  assert.match(app,/result\.status==='oversized'/);
  assert.match(app,/Potential growth/);
@@ -29,7 +43,8 @@ test('high-risk acceptance requires explicit confirmation',()=>{
  assert.match(app,/HIGH.RISK/);
 });
 test('Undo updates the action text after accepting a high-risk proposal',()=>{
- assert.match(app,/\$\('undo'\)\.onclick=\(\)=>\{[^}]*edits\?\.undo\(\)[^}]*action\(`Undo restored/);
+ assert.match(app,/refreshAfterHistory\('Undo restored'\)/);
+ assert.match(app,/edits\.volumes\(\)\.total\.toFixed\(3\)/);
 });
 test('radius markers draw physical diameter in every view',()=>{
  assert.match(app,/physicalPointRadius/);
