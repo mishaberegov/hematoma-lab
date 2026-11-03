@@ -8,7 +8,7 @@ test('orthogonal canvases fill their physical-aspect boxes rather than letterbox
  const rule=css.match(/\.viewImage canvas\{([^}]*)\}/)?.[1]||'';
  assert.match(rule,/object-fit:fill/);
  assert.match(rule,/width:min\(100%,calc\(60vh\s*\*\s*var\(--physical-aspect\)\)\)/);
- assert.match(app,/style\.setProperty\('--physical-aspect',String\(planeAspect\(volume,plane\)\)\)/);
+ assert.match(app,/style\.setProperty\('--physical-aspect',String\(patientPlaneAspect\(volume,plane\)\)\)/);
  assert.doesNotMatch(css,/\.viewImage canvas\{max-height:/,'mobile must not independently clamp canvas height and stretch pixels');
  assert.match(css,/@media\(max-width:700px\)[\s\S]*?\.viewImage\{min-height:300px;height:auto\}/,'mobile view must grow to show the entire canvas');
 });

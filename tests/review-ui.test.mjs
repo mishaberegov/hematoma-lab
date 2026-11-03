@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+test('viewer uses patient-space mapping for pixels, clicks, slices, markers and zoom',()=>{
+ for(const name of ['patientMapping','patientRowIndex','patientPlanePixel','patientVoxelFromPlane','patientZoomOrigin','stepPatientPlaneSlice'])assert.match(app,new RegExp(name+'\\('));
+ assert.match(app,/patientMapping\(volume,plane\)\.normalAxis/);
+ assert.doesNotMatch(app,/plane==='axial'\?2:plane==='coronal'\?1:0/);
+});
+test('each named plane slider follows its anatomical normal instead of a fixed array axis',()=>{
+ for(const plane of ['axial','coronal','sagittal'])assert.match(html,new RegExp(`id="${plane}Slice"`));
+ assert.match(app,/const axis=patientMapping\(volume,plane\)\.normalAxis;\$\(plane\+'Slice'\)\.max=/);
+});
 test('binary adaptive UI has no visible compartment selector',()=>{
  assert.doesNotMatch(html,/Compartment<select/);
  assert.match(html,/<label hidden>Binary target<select id="label"><option value="1">Target<\/option><\/select><\/label>/);

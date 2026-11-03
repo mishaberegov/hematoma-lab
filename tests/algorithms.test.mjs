@@ -1,9 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {index,planePixel,voxelFromPlane,displayVoxelFromPlane,displayPlanePixel,displayRowIndex,worldAt,planeAspect,localEdit,history,volumes,autoSeed,stepPlaneSlice,dragWindow,dragZoom,planeZoomOrigin,proposeFill} from '../dist/algorithm.mjs';
+import {patientPlane,planeDimensions,planeSliceAxis,patientPlanePixel,patientVoxelFromPlane,patientRowIndex,patientPlaneAspect,patientZoomOrigin,stepPatientPlaneSlice} from '../dist/algorithm.mjs';
 const dims=[9,9,5], data=new Float32Array(9*9*5).fill(0);
 const v={dims,data,matrix:[.5,0,0,0,.8,0,0,0,2],origin:[10,20,30]};
 const at=(x,y,z)=>index(dims,x,y,z);
+test('sagittal acquisition displays anatomical axial/coronal/sagittal and maps clicks to matching voxels',()=>{
+ const s={dims:[7,5,4],matrix:[0,0,2, 1,0,0, 0,3,0],origin:[0,0,0]};
+ assert.equal(patientPlane(s),'sagittal');
+ assert.deepEqual(['axial','coronal','sagittal'].map(p=>planeSliceAxis(s,p)),[1,0,2]);
+ assert.deepEqual(['axial','coronal','sagittal'].map(p=>planeDimensions(s,p)),[[4,7],[4,5],[7,5]]);
+ const xyz=[2,3,1];
+ for(const plane of ['axial','coronal','sagittal']){
+  const [a,b]=patientPlanePixel(s,plane,xyz),slice=xyz[planeSliceAxis(s,plane)];
+  assert.deepEqual(patientVoxelFromPlane(s,plane,a,b,slice),xyz);
+  const [row,stride]=patientRowIndex(s,plane,b,slice);
+  assert.equal(row+a*stride,index(s.dims,...xyz));
+  const [w,h]=planeDimensions(s,plane);
+  assert.deepEqual(patientZoomOrigin(s,plane,xyz),[100*(a+.5)/w,100*(b+.5)/h]);
+  assert.equal(patientPlaneAspect(s,plane)>0,true);
+ }
+ assert.deepEqual(stepPatientPlaneSlice(s,'axial',xyz,1),[2,4,1]);
+ assert.deepEqual(patientVoxelFromPlane(s,'coronal',0,0,2),[2,4,0],'superior is at top');
+});
 test('zoom pivots on the shared cursor pixel in every plane, including flipped superior',()=>{
  const cursor=[1,2,4];
  assert.deepEqual(planeZoomOrigin(v,'axial',cursor),[100*1.5/9,100*2.5/9]);
