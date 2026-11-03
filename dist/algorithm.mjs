@@ -19,6 +19,37 @@ export function planeAspect(v,plane){
   const length=axis=>Math.hypot(v.matrix[axis],v.matrix[axis+3],v.matrix[axis+6]);
   return v.dims[horizontal]*length(horizontal)/(v.dims[vertical]*length(vertical));
 }
+// Source array axes follow the acquisition; anatomical plane names follow patient LPS.
+const physicalNames=['sagittal','coronal','axial'];
+const axisVectors=v=>[0,1,2].map(i=>[v.matrix[i],v.matrix[i+3],v.matrix[i+6]]);
+function axisAssignment(v){
+ const a=axisVectors(v),permutations=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+ let best=null,score=-Infinity;
+ for(const p of permutations){const s=p.reduce((n,source,physical)=>n+Math.abs(a[source][physical])/Math.hypot(...a[source]),0);if(s>score){score=s;best=p;}}
+ return best;
+}
+export function patientPlane(v){return physicalNames[axisAssignment(v).indexOf(2)];}
+export function patientMapping(v,plane){
+ const physical=physicalNames.indexOf(plane);if(physical<0)throw Error('Unknown plane: '+plane);
+ const axes=axisVectors(v),normalAxis=axisAssignment(v)[physical],remaining=[0,1,2].filter(i=>i!==normalAxis);
+ const horizontal=plane==='sagittal'?1:0,vertical=plane==='axial'?1:2;
+ const projection=i=>Math.abs(axes[i][horizontal])/Math.hypot(...axes[i]);
+ const hAxis=projection(remaining[0])>=projection(remaining[1])?remaining[0]:remaining[1],vAxis=remaining.find(i=>i!==hAxis);
+ const hSign=axes[hAxis][horizontal]<0?-1:1,vSign=axes[vAxis][vertical]*(plane==='axial'?1:-1)<0?-1:1;
+ const w=v.dims[hAxis],h=v.dims[vAxis];
+ const voxel=(a,b,slice)=>{const p=[0,0,0];p[normalAxis]=slice;p[hAxis]=hSign>0?a:w-1-a;p[vAxis]=vSign>0?b:h-1-b;return p;};
+ const pixel=xyz=>[hSign>0?xyz[hAxis]:w-1-xyz[hAxis],vSign>0?xyz[vAxis]:h-1-xyz[vAxis]];
+ const spacing=i=>Math.hypot(...axes[i]);
+ return {normalAxis,hAxis,vAxis,w,h,sx:spacing(hAxis),sy:spacing(vAxis),hSign,vSign,voxel,pixel};
+}
+export const planeDimensions=(v,plane)=>{const m=patientMapping(v,plane);return [m.w,m.h];};
+export const planeSliceAxis=(v,plane)=>patientMapping(v,plane).normalAxis;
+export const patientVoxelFromPlane=(v,plane,a,b,slice)=>patientMapping(v,plane).voxel(a,b,slice);
+export const patientPlanePixel=(v,plane,xyz)=>patientMapping(v,plane).pixel(xyz);
+export function patientRowIndex(v,plane,b,slice){const m=patientMapping(v,plane),start=m.voxel(0,b,slice),strides=[1,v.dims[0],v.dims[0]*v.dims[1]];return [index(v.dims,...start),m.hSign*strides[m.hAxis]];}
+export function patientPlaneAspect(v,plane){const m=patientMapping(v,plane);return m.w*m.sx/(m.h*m.sy);}
+export function patientZoomOrigin(v,plane,xyz){const m=patientMapping(v,plane),[a,b]=m.pixel(xyz);return [100*(a+.5)/m.w,100*(b+.5)/m.h];}
+export function stepPatientPlaneSlice(v,plane,xyz,direction){const axis=planeSliceAxis(v,plane),next=xyz.slice();next[axis]=Math.max(0,Math.min(v.dims[axis]-1,next[axis]+Math.sign(direction)));return next;}
 const neighbours=(dims,i)=>{const [w,h,d]=dims,z=Math.floor(i/(w*h)),y=Math.floor(i/w)%h,x=i%w,r=[];if(x)r.push(i-1);if(x<w-1)r.push(i+1);if(y)r.push(i-w);if(y<h-1)r.push(i+w);if(z)r.push(i-w*h);if(z<d-1)r.push(i+w*h);return r;};
 const valid=(v,[x,y,z])=>Number.isInteger(x)&&Number.isInteger(y)&&Number.isInteger(z)&&x>=0&&y>=0&&z>=0&&x<v.dims[0]&&y<v.dims[1]&&z<v.dims[2];
 export function localEdit(v,mask,seed,label,mode,radiusMm,strength=1){
@@ -104,6 +135,11 @@ export function history(mask,v){const undoStack=[],redoStack=[],counts={};
   const apply=(changes,forward)=>{for(const [i,old,next] of changes){const from=forward?old:next,to=forward?next:old;if(v){const n=weight(i);if(from)counts[from]-=n;if(to)counts[to]=(counts[to]||0)+n;}mask[i]=to;}};
   return {
   commit(indices,label){const changes=Array.from(new Set(indices)).filter(i=>mask[i]!==label).map(i=>[i,mask[i],label]);apply(changes,true);if(changes.length){undoStack.push(changes);redoStack.length=0;}return changes.length;},
+  commitDelta(removed,added,label=1){const drops=new Set(removed),gains=new Set(added);
+   if([...drops].some(i=>!Number.isSafeInteger(i)||i<0||i>=mask.length||mask[i]!==label||gains.has(i))||
+      [...gains].some(i=>!Number.isSafeInteger(i)||i<0||i>=mask.length||mask[i]!==0))return 0;
+   const changes=[...[...drops].map(i=>[i,label,0]),...[...gains].map(i=>[i,0,label])];
+   if(changes.length){apply(changes,true);undoStack.push(changes);redoStack.length=0;}return changes.length;},
   undo(){const changes=undoStack.pop();if(!changes)return false;apply(changes,false);redoStack.push(changes);return true;},
   redo(){const changes=redoStack.pop();if(!changes)return false;apply(changes,true);undoStack.push(changes);return true;},
   volumes(){if(!v)throw Error('Volume geometry required');const m=v.matrix,voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000,unit=voxel/(factor*factor),out={total:0};for(const [label,count] of Object.entries(counts))if(count){out[label]=count*unit;out.total+=out[label];}return out;}

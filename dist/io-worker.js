@@ -61,9 +61,9 @@ async function codec(type){
   codecs[type]=new module[config[2]]();return codecs[type];
 }
 self.onmessage=async({data})=>{
-  const {parseFile,groupParsed,describeGroup}=await import('./dicom.mjs?v=0.5.3');
+  const {parseFile,groupParsed,describeGroup}=await import('./dicom.mjs?v=0.8.0');
   const {indexZip,readIndexedEntry}=await import('./zip-index.mjs?v=1.1.6-zipcache1');
-  const {buildMeasuredVolume}=await import('./measurement.mjs?v=0.5.3');
+  const {buildMeasuredVolume}=await import('./measurement.mjs?v=0.8.0');
   if(busy)return;busy=true;
   try{
     if(data.type==='scan'){
@@ -143,7 +143,7 @@ self.onmessage=async({data})=>{
       }
       if(parsed.length!==sources.length||parsed.some(p=>!p||p.key!==group.key))throw Error('Не удалось повторно прочитать выбранную серию.');
       const selected=groupParsed(parsed)[0];
-      const volume=await buildMeasuredVolume(selected,{codec,onProgress:f=>self.postMessage({type:'progress',slot,text:'Full CT stack',fraction:f})});
+      const volume=await buildMeasuredVolume(selected,{codec,onProgress:f=>self.postMessage({type:'progress',slot,text:'Full image stack',fraction:f})});
       self.postMessage({type:'volume',slot,volume},[volume.data.buffer]);
     }
   }catch(e){self.postMessage({type:'error',slot,message:e.message||String(e)});}finally{busy=false;}
