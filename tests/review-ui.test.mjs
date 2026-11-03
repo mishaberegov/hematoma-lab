@@ -3,10 +3,21 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
-test('research UI has no compartment selector or legacy segmentation tools',()=>{
- assert.doesNotMatch(html,/Compartment<select|Legacy CT mask-guided/);
+test('binary adaptive UI has no visible compartment selector',()=>{
+ assert.doesNotMatch(html,/Compartment<select/);
+ assert.match(html,/<label hidden>Binary target<select id="label"><option value="1">Target<\/option><\/select><\/label>/);
  assert.match(html,/id="radius"[^>]*value="8"/);
  assert.match(html,/id="adaptiveSensitivity"[^>]*value="50"/);
+});
+test('CT local editing tools are selectable beside adaptive points',()=>{
+ for(const value of ['seed','grow','shrink','exclude'])assert.match(html,new RegExp(`<option value="${value}">`));
+ assert.match(html,/<details class="legacy panel">/);
+ assert.match(html,/<button id="proposeFill"[^>]*>Propose fill<\/button>/);
+ assert.match(html,/<button id="clearExclusions"[^>]*>Clear exclusions<\/button>/);
+});
+test('binary target remains one label while legacy CT tools are selected',()=>{
+ assert.doesNotMatch(app,/options\[0\]\.textContent=mr\|\|adaptive\?'Target lesion':'Intraparenchymal'/);
+ assert.match(app,/span\.textContent='Target lesion: '/);
 });
 test('oversized proposal is reported as diagnostic with no Accept',()=>{
  assert.match(app,/result\.status==='oversized'/);
