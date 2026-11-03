@@ -20,15 +20,14 @@ test('crosshair is a thin, muted dashed overlay rather than a solid bright strok
  assert.match(app,/ctx\.lineWidth=w\/\(Math\.max\(1,canvas\.clientWidth\)\*zoom\)/);
  assert.match(app,/ctx\.setLineDash\(\[4\*ctx\.lineWidth,4\*ctx\.lineWidth\]\)/);
 });
-test('file and folder upload inputs remain keyboard-focusable with visible focus',()=>{
- const html=read('index.html'),css=read('style.css');
- for(const id of ['files','folder']){
-  const input=html.match(new RegExp(`<input id="${id}"[^>]*>`))?.[0];
-  assert.ok(input,`${id} input exists`);
-  assert.doesNotMatch(input,/\bhidden\b|\btabindex="-1"/);
+test('file and folder picker buttons are keyboard-focusable with visible focus',()=>{
+ const html=read('index.html'),css=read('style.css'),app=read('app.mjs');
+ for(const [button,input] of [['pickFiles','files'],['pickFolder','folder']]){
+  assert.match(html,new RegExp(`<button id="${button}" type="button"`));
+  assert.match(html,new RegExp(`<input id="${input}" type="file"[^>]*hidden`));
+  assert.match(app,new RegExp(`\\$\\('${button}'\\)\\.addEventListener\\('click',\\(\\)=>\\$\\('${input}'\\)\\.click\\(\\)\\)`));
  }
- assert.match(css,/\.upload:focus-within\s*\{/);
- assert.match(css,/\.upload input\[type=file\]\s*\{/);
+ assert.match(css,/:is\(button,select,input,summary,a\):focus-visible/);
 });
 test('mouse mode controls wrap instead of overflowing a narrow viewport',()=>{
  const css=read('style.css');
@@ -65,12 +64,11 @@ test('late directory traversal cannot replace a newer input or its status',()=>{
  assert.match(app,/if\(inputGate\.current\(token\)\)scan\(awaitedFiles,isDirectory\)/);
  assert.match(app,/catch\(error\)\{if\(inputGate\.current\(token\)\)status\(/);
 });
-test('Segment clicks edit at the clicked voxel without moving the 3D cursor',()=>{
+test('edit clicks do not move the 3D cursor',()=>{
  const app=read('app.mjs');
- const beforeNav=app.split('const xyz=point(e,plane);')[1].split("if($('interaction-nav').checked)")[0];
- assert.doesNotMatch(beforeNav,/setCross\(/);
- const nav=app.split("if($('interaction-nav').checked){")[1].split('const tool=selectedTool()')[0];
- assert.match(nav,/setCross\(xyz\)/);
+ const pointer=app.split('const xyz=point(e,plane);')[1].split("});c.addEventListener('pointermove'")[0];
+ assert.match(pointer,/if\(cursorMode\(\)\)\{setCross\(xyz\)/);
+ assert.doesNotMatch(pointer.split('discardCandidate();')[1],/setCross\(/);
 });
 test('a Segment grow or shrink press defers cursor redraw until its preview',()=>{
  const app=read('app.mjs');

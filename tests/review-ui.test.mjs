@@ -41,12 +41,13 @@ test('controls are grouped into marker, morphology and global panels',()=>{
  for(const value of ['morph-grow','morph-shrink'])assert.match(morph,new RegExp(`name="tool" value="${value}"`));
  for(const value of ['open','close'])assert.match(morph,new RegExp(`name="morphOperation" value="${value}"`));
  assert.doesNotMatch(morph,/value="erode"/);
- for(const id of ['undo','redo','resetSegmentation'])assert.match(global,new RegExp(`id="${id}"`));
+ for(const id of ['cursorMode','undo','resetSegmentation'])assert.match(global,new RegExp(`id="${id}"`));
+ assert.doesNotMatch(html,/id="redo"|id="interaction-segment"/);
  assert.match(html,/<div class="window-controls panel"[\s\S]*?<\/div>\s*<section class="volumes/);
  assert.doesNotMatch(html,/class="proposal-mark"/);
 });
-test('sampling diameter is in a shared right rail spanning both tool panels with zoom-aware physical preview',()=>{
- assert.match(html,/<div class="tools-layout">[\s\S]*<aside class="diameter-panel panel"/);
+test('sampling diameter sits under workspace actions with zoom-aware physical preview',()=>{
+ assert.match(html,/<div class="tools-layout"><div class="workspace-column">[\s\S]*<\/section>\s*<aside class="diameter-panel panel"/);
  const global=html.match(/<section class="global-panel panel"[\s\S]*?<\/section>/)?.[0]||'';
  assert.doesNotMatch(global,/id="radius"/);
  assert.match(html,/id="samplingPreview"/);
@@ -57,8 +58,8 @@ test('sampling diameter is in a shared right rail spanning both tool panels with
  assert.match(app,/\$\('radiusText'\)\.textContent=.*2\*Number\(\$\('radius'\)\.value\)/);
  assert.match(css,/\.tools-layout\{[^}]*grid-template-columns/);
 });
-test('choosing a marker or shape-aware tool activates Segment mode',()=>{
- assert.match(app,/radio\.addEventListener\('change',\(\)=>\{\$\('interaction-segment'\)\.checked=true;/);
+test('choosing a marker or shape-aware tool exits cursor mode',()=>{
+ assert.match(app,/radio\.addEventListener\('change',\(\)=>\{setCursorMode\(false\);/);
 });
 test('shape-aware tool selection persists across CT and MR and resets to target on new volume',()=>{
  assert.match(app,/\$\('tool-adaptive-seed'\)\.checked=true/);
@@ -102,9 +103,9 @@ test('requested copy and demo buttons are absent without removing local upload',
  for(const text of ['Local CT / MR · research prototype · not for clinical decisions','No upload · pixels stay in this tab','Experimental method · not validated for diagnosis or clinical measurement.','SOURCE <span>01</span>'])assert(!html.includes(text),text);
  assert.match(html,/id="files"/);assert.match(html,/id="folder"/);
 });
-test('Navigate/Segment selected border remains visible on both sides',()=>{
- assert.match(css,/\.interaction label:last-of-type span\{[^}]*border-left:1px/);
- assert.match(css,/\.interaction input:checked\+span\{[^}]*z-index:1/);
+test('the 3D cursor button keeps a visible pressed state',()=>{
+ assert.match(css,/#cursorMode\[aria-pressed="true"\]\{[^}]*border-color/);
+ assert.match(html,/<button id="cursorMode" type="button" aria-pressed="true"/);
 });
 test('reset segmentation is explicit, undoable, and preserves loaded image',()=>{
  assert.match(html,/<button id="resetSegmentation"[^>]*>Clear all<\/button>/);
@@ -118,7 +119,8 @@ test('Undo tracks target and background point placement, not only mask edits',()
  assert.match(app,/function recordAction\(/);
  assert.match(app,/points\.push\(xyz\);recordAction\(/);
  assert.match(app,/\$\('undo'\)\.onclick=\(\)=>\{[^}]*undoActions\.pop\(\)/);
- assert.match(app,/\$\('redo'\)\.onclick=\(\)=>\{[^}]*redoActions\.pop\(\)/);
+ assert.match(app,/redoActions\.push\(entry\)/);
+ assert.doesNotMatch(app,/\$\('redo'\)/);
 });
 test('oversized proposal is reported as diagnostic with no Accept',()=>{
  assert.match(app,/result\.status==='oversized'/);
