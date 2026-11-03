@@ -28,7 +28,7 @@ test('tool panel has exactly four vertically stacked selectable buttons and no C
  assert.doesNotMatch(html,/<select id="tool"/);
  assert.doesNotMatch(html,/value="seed"|Local CT seed/);
  assert.match(css,/\.tool-buttons\{[^}]*flex-direction:column/);
- assert.match(app,/document\.querySelector\('input\[name="tool"\]:checked'\)\.value/);
+ assert.match(app,/document\.querySelector\('input\[name="tool"\]:checked'\)\?\.value/);
  assert.doesNotMatch(app,/tool==='seed'|autoSeed\(/);
  for(const id of ['proposeFill','clearExclusions','demo','demoMR'])assert.doesNotMatch(html,new RegExp(`id="${id}"`));
 });
