@@ -18,6 +18,9 @@ test('binary adaptive UI has no visible compartment selector',()=>{
  assert.match(html,/id="radius"[^>]*value="8"/);
  assert.match(html,/id="adaptiveSensitivity"[^>]*value="50"/);
 });
+test('loading CT after MR resets window so CT pixels do not appear black',()=>{
+ assert.match(app,/if\(v\.modality==='CT'\)\{\$\('level'\)\.value='60';\$\('width'\)\.value='160';\}/);
+});
 test('CT local editing tools are selectable beside adaptive points',()=>{
  for(const value of ['seed','grow','shrink','exclude'])assert.match(html,new RegExp(`<option value="${value}">`));
  assert.match(html,/<details class="legacy panel">/);
