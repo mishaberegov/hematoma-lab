@@ -46,7 +46,7 @@ test('controls are grouped into marker, morphology and global panels',()=>{
  assert.match(html,/<div class="window-controls panel"[\s\S]*?<\/div>\s*<section class="volumes/);
  assert.doesNotMatch(html,/class="proposal-mark"/);
 });
-test('sampling diameter sits under workspace actions with zoom-aware physical preview',()=>{
+test('graph-cut search margin sits under workspace actions with zoom-aware physical preview',()=>{
  assert.match(html,/<div class="tools-layout"><div class="workspace-column">[\s\S]*<\/section>\s*<aside class="diameter-panel panel"/);
  const global=html.match(/<section class="global-panel panel"[\s\S]*?<\/section>/)?.[0]||'';
  assert.doesNotMatch(global,/id="radius"/);
@@ -55,7 +55,7 @@ test('sampling diameter sits under workspace actions with zoom-aware physical pr
  assert.match(app,/physicalPointRadius\(volume,previewPlane,Number\(\$\('radius'\)\.value\)\)/);
  assert.match(app,/canvas\.clientWidth\/canvas\.width\*zoom/);
  assert.match(app,/canvas\.clientHeight\/canvas\.height\*zoom/);
- assert.match(app,/\$\('radiusText'\)\.textContent=.*2\*Number\(\$\('radius'\)\.value\)/);
+ assert.match(app,/\$\('radiusText'\)\.textContent=Number\(\$\('radius'\)\.value\)\+' mm'/);
  assert.match(css,/\.tools-layout\{[^}]*grid-template-columns/);
 });
 test('choosing a marker or shape-aware tool exits cursor mode',()=>{
@@ -140,7 +140,7 @@ test('Undo updates the action text after accepting a high-risk proposal',()=>{
  assert.match(app,/refreshAfterHistory\(msg\('action\.undoRestored'\)\)/);
  assert.match(app,/edits\.volumes\(\)\.total\.toFixed\(3\)/);
 });
-test('radius markers draw physical diameter in every view',()=>{
+test('graph-cut point rings show physical search margin in every view',()=>{
  assert.match(app,/physicalPointRadius/);
- assert.match(html,/sampling diameter/i);
+ assert.match(html,/search margin/i);
 });

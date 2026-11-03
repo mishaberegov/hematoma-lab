@@ -39,3 +39,10 @@ test('search boundary contact is explicitly warned, not treated as anatomical ed
  const r=run(scene(),[[68,40,12]]);
  assert.equal(r.status,'ok');assert.equal(r.touchesBoundary,true);assert.match(r.warning,/search boundary/i);
 });
+test('MR intensity units do not change the physical cut under affine scaling',()=>{
+ const original=scene(),scaled=scene();
+ for(let i=0;i<scaled.data.length;i++)scaled.data[i]=scaled.data[i]/1000+2;
+ const a=run(original,[[68,40,12]]),b=run(scaled,[[68,40,12]]);
+ assert.equal(a.status,'ok');assert.equal(b.status,'ok');
+ assert.deepEqual(b.indices,a.indices);
+});

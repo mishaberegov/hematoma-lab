@@ -13,7 +13,7 @@ function fakeDocument(search = '') {
   });
   const root = {lang: 'en'};
   const title = {textContent: ''};
-  return {nodes, root, title, document: {documentElement: root, title: '', querySelectorAll() {return nodes;}, getElementById(id) {return nodes.find(n => n.getAttribute('id') === id);}}, location: {search, pathname: '/hematoma-lab-adaptive/', hash: '#view'}};
+  return {nodes, root, title, document: {documentElement: root, title: '', querySelectorAll() {return nodes;}, getElementById(id) {return nodes.find(n => n.getAttribute('id') === id);}}, location: {search, pathname: '/hematoma-lab-graphcut/', hash: '#view'}};
 }
 
 test('static markup covers every presented label and attribute with catalog keys', () => {
@@ -21,7 +21,7 @@ test('static markup covers every presented label and attribute with catalog keys
     assert.match(html, new RegExp(`(?:id="${id}"[^>]*data-i18n|data-i18n[^>]*id="${id}")`), id);
   }
   assert.match(html, /data-i18n-aria-label="views.axialSlice"/);
-  for (const key of ['brand.name','units.oneMillimeter','units.twoMillimeters','units.threeMillimeters','units.sixteenMillimeters']) assert.match(html, new RegExp(`data-i18n="${key}"`), key);
+  for (const key of ['brand.name','units.oneMillimeter','units.twoMillimeters','units.threeMillimeters','units.eightMillimeters']) assert.match(html, new RegExp(`data-i18n="${key}"`), key);
   assert.match(html, /data-i18n="adaptive.sensitivityDefault"/);
   assert.match(html, /data-i18n="footer.privacy"/);
   assert.match(html, /id="lang-en"[^>]*>EN<\/a>/);
@@ -32,13 +32,13 @@ test('static markup covers every presented label and attribute with catalog keys
 
 test('localizeStatic renders Russian text, aria and title without replacing input elements', () => {
   const {document, nodes, root} = fakeDocument('?study=1&lang=ru');
-  assert.equal(localizeStatic(document, '?study=1&lang=ru', '/hematoma-lab-adaptive/', '#view'), 'ru');
+  assert.equal(localizeStatic(document, '?study=1&lang=ru', '/hematoma-lab-graphcut/', '#view'), 'ru');
   assert.equal(root.lang, 'ru');
   assert.equal(document.title, catalog['page.title'].ru);
   assert.equal(nodes.find(n => n.getAttribute('id') === 'samplingNote').textContent, catalog['sampling.note'].ru);
   assert.equal(nodes.find(n => n.getAttribute('id') === 'axialSlice').getAttribute('aria-label'), catalog['views.axialSlice'].ru);
   assert.equal(nodes.find(n => n.getAttribute('id') === 'lang-ru').getAttribute('aria-current'), 'page');
-  assert.equal(nodes.find(n => n.getAttribute('id') === 'lang-en').getAttribute('href'), '/hematoma-lab-adaptive/?study=1#view');
+  assert.equal(nodes.find(n => n.getAttribute('id') === 'lang-en').getAttribute('href'), '/hematoma-lab-graphcut/?study=1#view');
 });
 
 test('language switch has registration-style paired selectable tabs', () => {
@@ -49,7 +49,7 @@ test('language switch has registration-style paired selectable tabs', () => {
 
 test('plain URL defaults to English and language links preserve unrelated params, duplicates and hash', () => {
   const {document, nodes, root} = fakeDocument('?case=a&lang=en&case=b');
-  assert.equal(localizeStatic(document, '?case=a&lang=en&case=b', '/hematoma-lab-adaptive/', '#view'), 'en');
+  assert.equal(localizeStatic(document, '?case=a&lang=en&case=b', '/hematoma-lab-graphcut/', '#view'), 'en');
   assert.equal(root.lang, 'en');
   assert.equal(nodes.find(n => n.getAttribute('id') === 'lang-en').textContent, 'EN');
   assert.equal(nodes.find(n => n.getAttribute('id') === 'lang-ru').textContent, 'RU');

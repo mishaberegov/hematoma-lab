@@ -35,7 +35,7 @@ export function graphCutFill(volume,positives,negatives,mask,radiusMm=8,sensitiv
  const edge=(a,b,c)=>{to[arcs]=b;cap[arcs]=c;next[arcs]=head[a];head[a]=arcs++;to[arcs]=a;cap[arcs]=0;next[arcs]=head[b];head[b]=arcs++;};
  const source=n,sink=n+1,hard=1e8;
  const positiveSet=new Set(positives.map(local)),negativeSet=new Set(negatives.map(local));
- const scale=Math.max(contrast*.4,1),smooth=1.2+(sensitivity/100)*1.2;
+ const scale=contrast*.4,smooth=1.2+(sensitivity/100)*1.2;
  for(let k=0;k<n;k++){
   const v=values[k],finite=Number.isFinite(v),dt=finite?Math.abs(v-target)/scale:100,db=finite?Math.abs(v-background)/scale:0;
   // source→voxel is cost of background; voxel→sink is cost of foreground.
