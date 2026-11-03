@@ -1,4 +1,4 @@
-import {adaptiveFill} from './adaptive.mjs?v=0.8.1';
+import {adaptiveFill} from './adaptive.mjs?v=0.8.2';
 self.onmessage=({data})=>{
  const {generation,volume,positives,negatives,mask,radius,sensitivity}=data;
  const started=performance.now();

@@ -19,3 +19,8 @@ test('both native pickers retain ingestion paths and document-wide drop',()=>{
  assert.match(app,/document\.addEventListener\('drop',async e=>/);
  assert.match(app,/filesFromDrop\(e\.dataTransfer\)/);
 });
+test('file chooser allows extensionless DICOM just like registration',()=>{
+ const files=html.match(/<input\b[^>]*id="files"[^>]*>/)?.[0];
+ assert.ok(files);
+ assert.doesNotMatch(files,/\baccept=/);
+});
