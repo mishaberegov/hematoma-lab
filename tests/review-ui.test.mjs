@@ -33,6 +33,9 @@ test('contour grow is an independent CT/MR tool with boundary pause and release-
  assert.match(app,/edits\.commit\(changes,tool==='shrink'\?0:holding\.label\)/);
  assert.match(app,/stage===1&&holding\.lastSafePreview/);
  assert.match(app,/result\.radiusClipped/);
+ assert.match(app,/holding\?\.tool==='contour-grow'&&previewSet\?\.has\(i\)\?\[255,190,70\]/);
+ assert.match(app,/HIGH-RISK contour grow/);
+ assert.match(app,/adaptiveMl\(changes\)/);
 });
 test('binary target remains one label while legacy CT tools are selected',()=>{
  assert.doesNotMatch(app,/options\[0\]\.textContent=mr\|\|adaptive\?'Target lesion':'Intraparenchymal'/);
