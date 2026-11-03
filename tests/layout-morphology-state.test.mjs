@@ -20,6 +20,15 @@ test('three desktop panels share one visual bottom edge and mobile can size natu
   assert.match(css, /@media\(max-width:720px\)\{[^\n]*\.workspace-column \.diameter-panel\{[^}]*flex:none/);
 });
 
+test('morphology precedes marker fill as the second desktop column and in responsive reading order', () => {
+  const layout = html.match(/<div class="tools-layout">[\s\S]*?<\/section>\s*<\/div>/)?.[0] || '';
+  const morphologyAt = layout.indexOf('class="morph-panel panel"');
+  const markerAt = layout.indexOf('class="marker-panel panel"');
+  assert.ok(morphologyAt > 0 && markerAt > morphologyAt);
+  assert.match(css, /@media\(max-width:1100px\)\{[^\n]*\.tools-layout>\.marker-panel\{grid-column:1\/-1\}/);
+  assert.match(css, /@media\(max-width:720px\)\{[^\n]*\.tools-layout>\.marker-panel\{grid-column:auto\}/);
+});
+
 test('stacked panel titles and statuses cannot retain row-layout 100% flex height', () => {
   assert.match(css, /\.tools-layout>\.marker-panel \.panel-title,\.tools-layout>\.morph-panel \.panel-title\{[^}]*flex:0 0 auto/);
   assert.match(css, /\.tools-layout>\.marker-panel #adaptiveStatus,\.tools-layout>\.morph-panel #morphStatus\{[^}]*flex:0 0 auto/);
