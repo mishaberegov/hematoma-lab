@@ -20,6 +20,11 @@ test('three desktop panels share one visual bottom edge and mobile can size natu
   assert.match(css, /@media\(max-width:720px\)\{[^\n]*\.workspace-column \.diameter-panel\{[^}]*flex:none/);
 });
 
+test('stacked panel titles and statuses cannot retain row-layout 100% flex height', () => {
+  assert.match(css, /\.tools-layout>\.marker-panel \.panel-title,\.tools-layout>\.morph-panel \.panel-title\{[^}]*flex:0 0 auto/);
+  assert.match(css, /\.tools-layout>\.marker-panel #adaptiveStatus,\.tools-layout>\.morph-panel #morphStatus\{[^}]*flex:0 0 auto/);
+});
+
 test('Opening and Closing are unselected, disabled native buttons until there is accepted mask', () => {
   for (const value of ['open', 'close']) {
     assert.match(morphology, new RegExp(`<input type="radio" name="morphOperation" value="${value}" disabled><span`));
