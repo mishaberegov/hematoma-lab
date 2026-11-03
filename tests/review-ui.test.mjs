@@ -55,6 +55,9 @@ test('mask cleanup provides non-destructive preview and one-action Undo for CT/M
  assert.match(app,/recordMaskAction\(/);
  assert.match(app,/morphCandidate=null/);
 });
+test('loading a new series clears the previous mask-cleanup status',()=>{
+ assert.match(app,/function clearVolume\(\)\{[^\n]*\$\('morphStatus'\)\.textContent='Preview before changing the accepted mask/);
+});
 test('binary target remains one label',()=>{
  assert.doesNotMatch(app,/options\[0\]\.textContent=mr\|\|adaptive\?'Target lesion':'Intraparenchymal'/);
  assert.match(app,/span\.textContent='Target lesion: '/);
