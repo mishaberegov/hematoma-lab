@@ -2,19 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL(`../dist/${name}`,import.meta.url),'utf8');
-test('fill sensitivity control adjusts an active proposal without accepting it',()=>{
+test('research sensitivity control retains the published default',()=>{
  const html=read('index.html'),app=read('app.mjs');
- assert.match(html,/id="fillSensitivity"[^>]*type="range"[^>]*min="0"[^>]*max="100"[^>]*value="50"/);
- assert.match(html,/id="fillSensitivityText"/);
- assert.match(app,/\$\('fillSensitivity'\)\.addEventListener\('input'/);
- assert.match(app,/proposeFill\(volume,mask,label,seedMarkers,exclusionMarkers,Number\(\$\('radius'\)\.value\),Number\(\$\('fillSensitivity'\)\.value\)\)/);
+ assert.match(html,/id="adaptiveSensitivity"[^>]*type="range"[^>]*min="0"[^>]*max="100"[^>]*value="50"/);
+ assert.match(app,/\$\('adaptiveSensitivity'\)\.addEventListener\('input'/);
 });
-test('marker-guided fill has separate exclusion, preview, accept and discard controls',()=>{
+test('research binary adaptive fill has separate anti point, preview, accept and discard controls',()=>{
  const html=read('index.html'),app=read('app.mjs');
- for(const id of ['proposeFill','acceptFill','discardFill','clearExclusions'])assert.match(html,new RegExp(`id="${id}"`));
- assert.match(html,/<option value="exclude">/);
- assert.match(app,/proposeFill\(volume,mask,label,seedMarkers,exclusionMarkers/);
- assert.match(app,/edits\.commit\(fillCandidate\.indices,fillCandidate\.label\)/);
+ for(const id of ['adaptivePreview','adaptiveAccept','adaptiveDiscard','adaptiveClear'])assert.match(html,new RegExp(`id="${id}"`));
+ assert.match(html,/<option value="adaptive-exclude">/);
+ assert.match(app,/new Worker\('\.\/adaptive-worker\.mjs/);
+ assert.match(app,/edits\.commit\(adaptiveCandidate\.indices,1\)/);
 });
 test('crosshair is a thin, muted dashed overlay rather than a solid bright stroke',()=>{
  const app=read('app.mjs');

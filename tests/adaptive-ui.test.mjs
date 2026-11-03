@@ -7,7 +7,7 @@ test('points are collected without mask edits until one explicit fill proposal a
  assert.match(html,/>Propose fill</);
  assert.match(app,/const points=tool==='adaptive-seed'\?adaptivePositive:adaptiveNegative/);
  assert.match(app,/points\.push\(xyz\)/);
- assert.match(app,/adaptiveFill\(volume,adaptivePositive,adaptiveNegative,mask/);
+ assert.match(app,/new Worker\('\.\/adaptive-worker\.mjs/);
  assert.match(app,/edits\.commit\(adaptiveCandidate\.indices/);
  assert.doesNotMatch(app,/runAdaptive\(xyz\)/);
 });

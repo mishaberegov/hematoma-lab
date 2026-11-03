@@ -58,7 +58,7 @@ export function adaptiveFill(volume,positives,negatives,mask,radiusMm=8,sensitiv
  const spacing=[0,1,2].map(a=>Math.hypot(inv[a*3],inv[a*3+1],inv[a*3+2]));
  const lo=[0,1,2].map(a=>Math.max(0,Math.min(...positives.map(p=>p[a]))-Math.ceil(radiusMm*spacing[a])));
  const hi=[0,1,2].map(a=>Math.min(dims[a]-1,Math.max(...positives.map(p=>p[a]))+Math.ceil(radiusMm*spacing[a])));
- const size=hi.map((v,a)=>v-lo[a]+1),n=size[0]*size[1]*size[2];if(n>maxNodes)return blocked('Marker search region exceeds the safety limit; place points more locally');
+ const size=hi.map((v,a)=>v-lo[a]+1),n=size[0]*size[1]*size[2];if(n>maxNodes)return {status:'refused',reason:'Computational resource refusal: marker ROI exceeds the bounded search budget; no complete diagnostic or preview computed.',indices:[],roiVoxels:n};
  const mm2=(p,x,y,z)=>{const dx=x-p[0],dy=y-p[1],dz=z-p[2];return (matrix[0]*dx+matrix[1]*dy+matrix[2]*dz)**2+(matrix[3]*dx+matrix[4]*dy+matrix[5]*dz)**2+(matrix[6]*dx+matrix[7]*dy+matrix[8]*dz)**2;};
  const coreRadius=Math.min(2,Math.max(.8,radiusMm*.28)),coreReach=spacing.map(s=>Math.ceil(coreRadius*s));
  const collect=p=>{const samples=[];for(let z=Math.max(0,p[2]-coreReach[2]);z<=Math.min(dims[2]-1,p[2]+coreReach[2]);z++)for(let y=Math.max(0,p[1]-coreReach[1]);y<=Math.min(dims[1]-1,p[1]+coreReach[1]);y++)for(let x=Math.max(0,p[0]-coreReach[0]);x<=Math.min(dims[0]-1,p[0]+coreReach[0]);x++)if(mm2(p,x,y,z)<=coreRadius**2){const i=flat(dims,x,y,z),value=data[i];if(Number.isFinite(value))samples.push({i,value});}return samples;};
@@ -74,18 +74,20 @@ export function adaptiveFill(volume,positives,negatives,mask,radiusMm=8,sensitiv
  else maxIntensity=Math.min(maxIntensity,(negativeMedian+mid)/2);}
  const forbidden=(x,y,z)=>negatives.some(p=>mm2(p,x,y,z)<=Math.min(3,radiusMm/2)**2);
  const accepted=i=>{const x=i%dims[0],y=Math.floor(i/dims[0])%dims[1],z=Math.floor(i/(dims[0]*dims[1]));return x>=lo[0]&&x<=hi[0]&&y>=lo[1]&&y<=hi[1]&&z>=lo[2]&&z<=hi[2]&&!forbidden(x,y,z)&&(mask[i]===0||mask[i]===1)&&Number.isFinite(data[i])&&data[i]>=minIntensity&&data[i]<=maxIntensity;};
- const seen=new Uint8Array(n),queue=new Int32Array(n),indices=[];let read=0,write=0,touchesBoundary=false;
+ const seen=new Uint8Array(n),queue=new Int32Array(n),indices=[];let read=0,write=0,touchesBoundary=false,potentialVoxels=0,potentialMl=0;
+ const determinant=Math.abs(matrix[0]*(matrix[4]*matrix[8]-matrix[5]*matrix[7])-matrix[1]*(matrix[3]*matrix[8]-matrix[5]*matrix[6])+matrix[2]*(matrix[3]*matrix[7]-matrix[4]*matrix[6]));
+ const factor=volume.reductionFactor||1,source=volume.sourceDims||dims;
  const local=i=>{const x=i%dims[0],y=Math.floor(i/dims[0])%dims[1],z=Math.floor(i/(dims[0]*dims[1]));return flat(size,x-lo[0],y-lo[1],z-lo[2]);};
  for(const core of cores){const best=core.filter(s=>accepted(s.i)).sort((a,b)=>Math.abs(a.value-mid)-Math.abs(b.value-mid))[0];if(!best)return blocked('A positive point has no representative target pixels nearby');const k=local(best.i);if(!seen[k]){seen[k]=1;queue[write++]=best.i;}}
- while(read<write){const i=queue[read++],x=i%dims[0],y=Math.floor(i/dims[0])%dims[1],z=Math.floor(i/(dims[0]*dims[1]));if(mask[i]===0)indices.push(i);
+ while(read<write){const i=queue[read++],x=i%dims[0],y=Math.floor(i/dims[0])%dims[1],z=Math.floor(i/(dims[0]*dims[1]));if(mask[i]===0){potentialVoxels++;potentialMl+=determinant/1000*Math.min(factor,source[0]-x*factor)*Math.min(factor,source[1]-y*factor)/(factor*factor);if(potentialVoxels<=maxProposal)indices.push(i);}
   if(x===lo[0]||x===hi[0]||y===lo[1]||y===hi[1]||z===lo[2]||z===hi[2])touchesBoundary=true;
   for(const [a,b,c] of [[x-1,y,z],[x+1,y,z],[x,y-1,z],[x,y+1,z],[x,y,z-1],[x,y,z+1]]){
    if(a<lo[0]||a>hi[0]||b<lo[1]||b>hi[1]||c<lo[2]||c>hi[2])continue;
    const k=flat(size,a-lo[0],b-lo[1],c-lo[2]);if(seen[k])continue;seen[k]=1;
    const j=flat(dims,a,b,c);if(accepted(j))queue[write++]=j;
   }
-  if(indices.length>maxProposal)return blocked('Proposal exceeds the safety limit; add background points or tighten the marker region');
  }
+ if(potentialVoxels>maxProposal)return {status:'oversized',reason:'Potential growth exceeds the proposal cap; this is NOT empty anatomy. Add background points and recalculate. No preview can be accepted.',indices:[],potentialVoxels,potentialMl,touchesBoundary,roiVoxels:n,warning};
  if(touchesBoundary)warning=(warning?warning+' ':'')+'Proposal touches the spatial search boundary; inspect for truncation.';
  return {status:indices.length?'ok':'blocked',reason:indices.length?'':'No new connected pixels match the learned intensity range',indices,minIntensity,maxIntensity,median:mid,negativeMedian,warning};
 }
