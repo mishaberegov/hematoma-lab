@@ -65,6 +65,11 @@ test('shape-aware tool selection persists across CT and MR and resets to target 
  assert.match(app,/\$\('tool-adaptive-seed'\)\.checked=true/);
  assert.match(app,/querySelectorAll\('input\[name="tool"\]'\)/);
 });
+test('Propose fill is neutral, while explicit Accept mask keeps primary emphasis',()=>{
+ assert.match(html,/<button id="adaptivePreview" type="button"/);
+ assert.doesNotMatch(html,/<button id="adaptivePreview"[^>]*class="primary"/);
+ assert.match(html,/<button id="adaptiveAccept" class="primary"/);
+});
 test('shape-aware grow and shrink are CT/MR held tools with one Undo commit',()=>{
  assert.match(html,/type="radio" name="tool" value="morph-grow"[^>]*><span data-i18n="morph.grow">Shape-aware grow/);
  assert.match(html,/type="radio" name="tool" value="morph-shrink"[^>]*><span data-i18n="morph.shrink">Shape-aware shrink/);
@@ -78,7 +83,7 @@ test('shape-aware grow and shrink are CT/MR held tools with one Undo commit',()=
  assert.match(app,/holding\.pendingMorph/);
  assert.match(app,/holding\.visibleComplete=false/);
  assert.match(app,/holding\.visibleComplete=true/);
- assert.match(app,/changes=holding\.visibleComplete\?preview\|\|\[\]:\[\]/);
+ assert.match(app,/changes=shrinking&&!holding\.visibleComplete\?\[\]:preview\|\|\[\]/);
  assert.match(app,/shrinking\?0:holding\.label/);
 });
 test('mask cleanup provides non-destructive preview and one-action Undo for CT/MR',()=>{

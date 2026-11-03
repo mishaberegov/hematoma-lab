@@ -8,6 +8,11 @@ test('URL language is explicitly Russian or English and otherwise English', () =
   assert.equal(localeFromSearch('?lang=en&x=ru'), 'en');
 });
 
+test('partial Grow guidance offers release of the visible fragment in both languages', () => {
+  assert.match(t('action.shapePartialGrow', 'en', {operation:'Grow'}), /release now.*visible fragment/i);
+  assert.match(t('action.shapePartialGrow', 'ru', {operation:'Рост'}), /отпуст.*видимый фрагмент/i);
+});
+
 test('catalog translates static labels and statuses in both languages', () => {
   assert.equal(t('source.files', 'en'), 'Files / ZIP');
   assert.equal(t('source.files', 'ru'), 'Файлы / ZIP');
