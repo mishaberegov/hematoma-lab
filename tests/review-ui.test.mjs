@@ -27,15 +27,37 @@ test('CT local editing tools are selectable beside adaptive points',()=>{
 test('contour grow is an independent CT/MR tool with boundary pause and release-to-commit',()=>{
  assert.match(html,/<option value="contour-grow">Contour grow/);
  assert.match(app,/import \{contourGrow\} from '\.\/contour-grow\.mjs/);
- assert.match(app,/\['adaptive-seed','adaptive-exclude','contour-grow'\]/);
+ assert.match(app,/\['adaptive-seed','adaptive-exclude','contour-grow','morph-grow'\]/);
  assert.match(app,/holding\.tool==='contour-grow'/);
  assert.match(app,/holding\.boundaryAt\s*\+\s*1200/);
  assert.match(app,/edits\.commit\(changes,tool==='shrink'\?0:holding\.label\)/);
  assert.match(app,/stage===1&&holding\.lastSafePreview/);
  assert.match(app,/result\.radiusClipped/);
- assert.match(app,/holding\?\.tool==='contour-grow'&&previewSet\?\.has\(i\)\?\[255,190,70\]/);
+ assert.match(app,/\(holding\?\.tool==='contour-grow'\|\|holding\?\.tool==='morph-grow'\)&&previewSet\?\.has\(i\)\?\[255,190,70\]/);
  assert.match(app,/HIGH-RISK contour grow/);
  assert.match(app,/adaptiveMl\(changes\)/);
+});
+test('shape-aware grow is an independent CT/MR held tool, preserving legacy contour grow',()=>{
+ assert.match(html,/<option value="morph-grow">Shape-aware grow/);
+ assert.match(html,/<option value="contour-grow">Contour grow/);
+ assert.match(app,/import \{morphGrow\} from '\.\/morph-grow\.mjs/);
+ assert.match(app,/\['adaptive-seed','adaptive-exclude','contour-grow','morph-grow'\]/);
+ assert.match(app,/holding\.tool==='morph-grow'/);
+ assert.match(app,/morphGrow\(volume,mask,holding\.xyz/);
+ assert.match(app,/holding\.boundaryAt\s*\+\s*1200/);
+ assert.match(app,/holding\.pendingMorph/);
+ assert.match(app,/holding\.visibleComplete=false/);
+ assert.match(app,/holding\.visibleComplete=true/);
+ assert.match(app,/tool==='morph-grow'&&!holding\.visibleComplete\?\[\]/);
+});
+test('mask cleanup provides non-destructive preview and one-action Undo for CT/MR',()=>{
+ for(const id of ['morphOperation','morphRadius','morphPreview','morphAccept','morphDiscard','morphStatus'])assert.match(html,new RegExp(`id="${id}"`));
+ assert.match(html,/<option value="erode">/);
+ assert.match(html,/<option value="open">/);
+ assert.match(app,/new Worker\('\.\/morphology-worker\.mjs/);
+ assert.match(app,/edits\.commit\(candidate\.removed,0\)/);
+ assert.match(app,/recordMaskAction\(/);
+ assert.match(app,/morphCandidate=null/);
 });
 test('binary target remains one label while legacy CT tools are selected',()=>{
  assert.doesNotMatch(app,/options\[0\]\.textContent=mr\|\|adaptive\?'Target lesion':'Intraparenchymal'/);
