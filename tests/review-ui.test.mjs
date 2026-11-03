@@ -24,6 +24,16 @@ test('CT local editing tools are selectable beside adaptive points',()=>{
  assert.match(html,/<button id="proposeFill"[^>]*>Propose fill<\/button>/);
  assert.match(html,/<button id="clearExclusions"[^>]*>Clear exclusions<\/button>/);
 });
+test('contour grow is an independent CT/MR tool with boundary pause and release-to-commit',()=>{
+ assert.match(html,/<option value="contour-grow">Contour grow/);
+ assert.match(app,/import \{contourGrow\} from '\.\/contour-grow\.mjs/);
+ assert.match(app,/\['adaptive-seed','adaptive-exclude','contour-grow'\]/);
+ assert.match(app,/holding\.tool==='contour-grow'/);
+ assert.match(app,/holding\.boundaryAt\s*\+\s*1200/);
+ assert.match(app,/edits\.commit\(changes,tool==='shrink'\?0:holding\.label\)/);
+ assert.match(app,/stage===1&&holding\.lastSafePreview/);
+ assert.match(app,/result\.radiusClipped/);
+});
 test('binary target remains one label while legacy CT tools are selected',()=>{
  assert.doesNotMatch(app,/options\[0\]\.textContent=mr\|\|adaptive\?'Target lesion':'Intraparenchymal'/);
  assert.match(app,/span\.textContent='Target lesion: '/);
