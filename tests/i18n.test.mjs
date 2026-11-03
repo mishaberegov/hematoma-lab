@@ -16,7 +16,7 @@ test('partial Grow guidance offers release of the visible fragment in both langu
 test('catalog translates static labels and statuses in both languages', () => {
   assert.equal(t('source.files', 'en'), 'Files / ZIP');
   assert.equal(t('source.files', 'ru'), 'Файлы / ZIP');
-  assert.equal(t('adaptive.propose', 'ru'), 'Предложить заполнение');
+  assert.equal(t('adaptive.propose', 'ru'), 'Предложить графовый разрез');
   assert.equal(t('action.undo', 'ru'), 'Отменить');
   assert.equal(t('status.noVolume', 'ru'), 'Том не загружен.');
   assert.equal(t('status.noVolume', 'fr'), 'No volume loaded.');

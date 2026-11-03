@@ -5,5 +5,5 @@ test('adaptive computation runs off main thread with cancel and generation gate'
  assert.match(app,/new Worker\('\.\/adaptive-worker\.mjs/);
  assert.match(app,/adaptiveWorker\.terminate\(\)/);
  assert.match(app,/generation!==adaptiveGeneration/);
- assert.match(worker,/adaptiveFill\(/);
+ assert.match(worker,/graphCutFill\(/);
 });

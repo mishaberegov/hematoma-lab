@@ -1,14 +1,9 @@
-# Hematoma Lab
+# Hematoma Lab · Graph cut (isolated experimental variant)
 
-Browser-only CT/MR segmentation workspace with marker-guided adaptive fill, shape-aware grow/shrink, mask opening/closing, three orthogonal views, and Undo/Redo. The interface defaults to English; add `?lang=ru` or use the EN/RU switch for Russian.
+Browser-only CT/MR viewer derived from main v0.8.6, with target/background clicks, one non-destructive 3D graph-cut preview, Accept/Discard/Undo, morphology, and English/Russian locale. `npm test`; `npm start` serves a localhost page. No deployment or patient data.
 
-## Run and test
+**Graph cut:** explicit background points are mandatory. A physical-mm margin around the bounding box of *all* user points defines a computational ROI, not a maximum lesion radius. There is no automatically sampled 13–16 mm “normal” shell and no forced background at 15.5 mm. Positive clicks are hard target terminals; negative clicks are hard background terminals and contribute intensity samples. Similar target/background medians cause refusal. ROI >150,000 voxels refuses before graph allocation, without a partial preview. The accepted mask never changes until Accept. ROI-face contact is warned, not presented as an anatomical edge. The UI slider changes soft boundary regularization; the sampling diameter corresponds to twice the ROI-margin radius.
 
-```sh
-npm test
-npm start
-```
+**Limits:** Bounding-box search can still truncate large lesions; add markers to widen the box and inspect the warning, or a wide box can refuse on the computational budget. A forced target voxel is not evidence of blood. Similar intensities, disconnected hemorrhage, thin or irregular tissue, anisotropic imaging, and review errors remain unresolved. The JS cut and worker are experimental, not clinically validated; no patient evaluation was done. Browser QA uses only synthetic CT. Workers clone image data per request; peak whole-browser memory on real series and full MR ingestion are not yet measured.
 
-Open `http://127.0.0.1:8765/` locally. DICOM processing and segmentation run in the browser; no application upload endpoint is used. Never add patient DICOM, masks, scans, or screenshots to this repository or its web host.
-
-The segmentation method is experimental and **not validated for diagnosis or clinical measurement**. In particular, a local grow may refuse to commit when no trustworthy boundary is found within its sampling radius. Preview proposals require explicit acceptance; Undo restores accepted edits. Volume measurement is blocked on invalid geometry, and CT requires calibrated HU.
+Synthetic fixture: `python3 tests/make-synthetic-ct.py /path/to/synthetic.zip`. Never put patient CT, masks, or screenshots in this checkout or on the Pi.
