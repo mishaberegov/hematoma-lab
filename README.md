@@ -1,9 +1,14 @@
-# Hematoma Lab — isolated adaptive review prototype
+# Hematoma Lab
 
-**Research-only, not deployed.** This directory is a frozen copy of the separately published adaptive variant with local changes. The original `/home/boojum/hematoma-lab-adaptive`, public `/hematoma-lab-adaptive/`, and primary HU `/hematoma-lab/` remain unchanged. See [STAGE3-REPORT.md](STAGE3-REPORT.md) for source hashes, red→green tests, browser receipts, personal-case result and limitations.
+Browser-only CT/MR segmentation workspace with marker-guided adaptive fill, shape-aware grow/shrink, mask opening/closing, three orthogonal views, and Undo/Redo. The interface defaults to English; add `?lang=ru` or use the EN/RU switch for Russian.
 
-Run `npm test`, then `python3 -m http.server 18889 --bind 127.0.0.1 --directory dist` and open `http://127.0.0.1:18889/`. No model or inference server; the DICOM loader and adaptive worker run in the browser. Do not expose this research server publicly or use the result for diagnosis.
+## Run and test
 
-Open a series or synthetic demo, switch to **Segment**, place teal target points and optional orange anti points, then click **Propose fill** once. The visible circle represents the physically sized sampling radius (default 8 mm), not an anatomical boundary; sensitivity defaults to 50. Points do not modify the accepted binary mask. A new point or setting change invalidates stale preview. **Discard proposal** also cancels an active worker. A completed proposal displays proposed and conditional total mL, warning on search-box contact. Above the 200,000-new-voxel proposal guard, only a completed potential-growth diagnostic is shown, never a partial mask or Accept; if the 3-million-voxel marker ROI budget is exceeded, the app explicitly refuses computation. An anti point may reduce leakage, but is not guaranteed to solve it. Accept over 100 mL requires a second high-risk confirmation and Undo restores the accepted mask.
+```sh
+npm test
+npm start
+```
 
-The test scripts under `tests/` include the laptop-only browser replay (`personal-browser-laptop.py`), which reads the original ZIP from the laptop and never writes patient data or screenshots here. `synthetic-preview.png` is browser-generated from the synthetic demo. The complete safety/clinical QA gate has **not** been met; do not deploy this copy.
+Open `http://127.0.0.1:8765/` locally. DICOM processing and segmentation run in the browser; no application upload endpoint is used. Never add patient DICOM, masks, scans, or screenshots to this repository or its web host.
+
+The segmentation method is experimental and **not validated for diagnosis or clinical measurement**. In particular, a local grow may refuse to commit when no trustworthy boundary is found within its sampling radius. Preview proposals require explicit acceptance; Undo restores accepted edits. Volume measurement is blocked on invalid geometry, and CT requires calibrated HU.
