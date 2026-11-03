@@ -96,8 +96,9 @@ export function morphGrow(volume,mask,seedXYZ,{radiusMm,stage=0,maxNewVoxels=200
  const affinityLimit=range*(stage===0?.125:.36);
  const seedMean=mean(...seedXYZ);
  const visited=new Uint8Array(count),queue=[seedXYZ],indices=[];
+ const continuing=!!mask[global(...seedXYZ)];
  visited[local(...seedXYZ)]=1;
- if(!mask[global(...seedXYZ)])indices.push(global(...seedXYZ));
+ if(!continuing)indices.push(global(...seedXYZ));
  let boundaryDetected=false,radiusClipped=false,imageFace=false;
  for(let q=0;q<queue.length;q++){
   const xyz=queue[q];
@@ -106,7 +107,8 @@ export function morphGrow(volume,mask,seedXYZ,{radiusMm,stage=0,maxNewVoxels=200
    const next=xyz.map((v,a)=>v+d[a]);if(!inside(...next))continue;
    const li=local(...next);if(visited[li])continue;visited[li]=1;
    if(distance(...next)>radiusMm+1e-7){radiusClipped=true;continue;}
-   const gi=global(...next);if(mask[gi])continue;
+   const gi=global(...next);
+   if(mask[gi]){if(continuing)queue.push(next);continue;}
    const deviation=Math.abs(mean(...next)-seedMean);
    if(deviation>affinityLimit||(deviation>range*(stage===0?.06:.10)&&edge(...next,d)>threshold)){boundaryDetected=true;continue;}
    indices.push(gi);
@@ -117,5 +119,23 @@ export function morphGrow(volume,mask,seedXYZ,{radiusMm,stage=0,maxNewVoxels=200
  if(imageFace||!boundaryDetected||indices.length===0)return empty('no-boundary',imageFace?'Candidate touches image face.':'No reliable boundary within local radius.');
  const smoothed=regularizeSurface(indices,mask,dims,seedXYZ,m);
  if(!smoothed.length)return empty('no-boundary','Surface support too weak for a safe local proposal.');
- return {status:'ok',indices:smoothed,boundaryDetected:true,radiusClipped,reason:''};
+ // Regularization can cut a narrow bridge. Retain only new cells still
+ // face-connected to the clicked accepted component, never detached islands.
+ let connected=smoothed;
+ if(continuing){
+  const proposed=new Set(smoothed),reached=new Set(),seen=new Uint8Array(count),front=[seedXYZ];
+  seen[local(...seedXYZ)]=1;
+  for(let q=0;q<front.length;q++)for(const d of directions){
+   const next=front[q].map((v,a)=>v+d[a]);if(!inside(...next)||distance(...next)>radiusMm+1e-7)continue;
+   const li=local(...next);if(seen[li])continue;seen[li]=1;
+   const gi=global(...next);
+   if(mask[gi]||proposed.has(gi)){
+    if(proposed.has(gi))reached.add(gi);
+    front.push(next);
+   }
+  }
+  connected=smoothed.filter(i=>reached.has(i));
+ }
+ if(!connected.length)return empty('no-boundary','Surface support too weak for a safe local proposal.');
+ return {status:'ok',indices:connected,boundaryDetected:true,radiusClipped,reason:''};
 }

@@ -33,6 +33,67 @@ test('heterogeneous elongated MR structure grows without imposing a spherical ma
  assert.deepEqual(mask,before);
 });
 
+test('click two millimeters inside accepted sphere continues from its nearby surface without editing accepted mask',()=>{
+ const [v,mask]=fixture((x,y,z)=>Math.hypot(x-20,y-20,z-20)<9?80:-80);
+ for(let z=0;z<41;z++)for(let y=0;y<41;y++)for(let x=0;x<41;x++)
+  if(Math.hypot(x-20,y-20,z-20)<5)mask[at(v.dims,x,y,z)]=1;
+ const before=mask.slice(),r=morphGrow(v,mask,[22,20,20],{radiusMm:10});
+ assert.equal(r.status,'ok',r.reason);
+ assert(r.indices.includes(at(v.dims,26,20,20)));
+ assert(r.indices.length>0);
+ assert.equal(new Set(r.indices).size,r.indices.length);
+ assert(r.indices.every(i=>!before[i]));
+ assert.deepEqual(mask,before);
+});
+
+test('continuation returns only new voxels attached to accepted mask, with no duplicate indices',()=>{
+ const [v,mask]=fixture((x,y,z)=>Math.hypot(x-20,y-20,z-20)<9?80:-80);
+ for(let z=0;z<41;z++)for(let y=0;y<41;y++)for(let x=0;x<41;x++)
+  if(Math.hypot(x-20,y-20,z-20)<5)mask[at(v.dims,x,y,z)]=1;
+ const r=morphGrow(v,mask,[22,20,20],{radiusMm:10});
+ assert.equal(r.status,'ok',r.reason);
+ const pending=new Set(r.indices),reached=new Set(),queue=[];
+ for(const i of pending){
+  const x=i%41,y=Math.floor(i/41)%41,z=Math.floor(i/1681);
+  if([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>mask[at(v.dims,x+dx,y+dy,z+dz)])){
+   reached.add(i);queue.push([x,y,z]);
+  }
+ }
+ for(let q=0;q<queue.length;q++){
+  const [x,y,z]=queue[q];
+  for(const [dx,dy,dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
+   const nx=x+dx,ny=y+dy,nz=z+dz;
+   if(nx<0||ny<0||nz<0||nx>=41||ny>=41||nz>=41)continue;
+   const i=at(v.dims,nx,ny,nz);
+   if(pending.has(i)&&!reached.has(i)){reached.add(i);queue.push([nx,ny,nz]);}
+  }
+ }
+ assert.equal(reached.size,pending.size,'new voxels must touch the accepted component via a face path');
+ assert.equal(pending.size,r.indices.length);
+ assert(r.indices.every(i=>!mask[i]));
+});
+
+test('continuation refuses a no-op once the entire eligible region is already accepted',()=>{
+ const [v,mask]=fixture((x,y,z)=>Math.hypot(x-20,y-20,z-20)<8?80:-80);
+ for(let z=0;z<41;z++)for(let y=0;y<41;y++)for(let x=0;x<41;x++)
+  if(Math.hypot(x-20,y-20,z-20)<8)mask[at(v.dims,x,y,z)]=1;
+ const before=mask.slice(),r=morphGrow(v,mask,[22,20,20],{radiusMm:12});
+ assert.notEqual(r.status,'ok');assert.deepEqual(r.indices,[]);assert.deepEqual(mask,before);
+});
+
+test('unsafe inside-mask continuation refuses atomically at the new-voxel cap and image face',()=>{
+ const [v,mask]=fixture((x,y,z)=>Math.hypot(x-20,y-20,z-20)<9?80:-80);
+ for(let z=0;z<41;z++)for(let y=0;y<41;y++)for(let x=0;x<41;x++)
+  if(Math.hypot(x-20,y-20,z-20)<5)mask[at(v.dims,x,y,z)]=1;
+ const before=mask.slice();
+ const capped=morphGrow(v,mask,[22,20,20],{radiusMm:10,maxNewVoxels:2});
+ assert.equal(capped.status,'overflow');assert.deepEqual(capped.indices,[]);assert.deepEqual(mask,before);
+ const [face,faceMask]=fixture((x)=>x<14?80:-80);
+ for(let x=0;x<=8;x++)faceMask[at(face.dims,x,20,20)]=1;
+ const unsafe=morphGrow(face,faceMask,[7,20,20],{radiusMm:12});
+ assert.notEqual(unsafe.status,'ok');assert.deepEqual(unsafe.indices,[]);
+});
+
 test('same CT-shaped proposal is invariant to affine intensity rescaling, including negative MR-like values',()=>{
  const shape=(x,y,z)=>((x-20)/8)**2+((y-20)/6)**2+((z-20)/5)**2<1;
  const [ct,mask]=fixture((x,y,z)=>shape(x,y,z)?75:-20);

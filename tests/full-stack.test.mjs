@@ -75,12 +75,13 @@ test('Segment clicks edit at the clicked voxel without moving the 3D cursor',()=
 test('a Segment grow or shrink press defers cursor redraw until its preview',()=>{
  const app=read('app.mjs');
  assert.match(app,/function setCross\(xyz,redraw=true\)/);
- assert.match(app,/preview=localEdit\([^;]+;draw\(\)/);
+ assert.match(app,/function updatePreview\(\)\{if\(!holding\|\|!volume\)return/);
+ assert.match(app,/if\(tool==='morph-grow'\|\|tool==='morph-shrink'\)\{holding=/);
 });
 test('a Segment seed press draws only the accepted mask, not an intermediate cursor',()=>{
  const app=read('app.mjs');
  assert.ok(app.includes("if(hits.length>200000){action('Local seed exceeds 200,000 grid voxels: reduce Radius.');draw();return;}"));
- const seed=app.split("if(tool==='seed'){")[1].split('holding={')[0];
+ const seed=app.split("if(tool==='seed'){")[1].split('\n});c.addEventListener')[0];
  assert.equal((seed.match(/draw\(\)/g)||[]).length,2);
  assert.ok(seed.indexOf('edits.commit(')<seed.lastIndexOf('draw();renderVolumes();return;'));
 });

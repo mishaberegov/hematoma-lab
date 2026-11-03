@@ -26,6 +26,67 @@ test('opening removes specks and staircase protrusions but restores a broad lesi
  assert.deepEqual(o.added,[]);assert(o.removed.length<e.removed.length);
 });
 
+test('closing previews a one-voxel interior hole without mutating the mask',()=>{
+ const [v,m]=fixture([9,9,9]);box(m,v.dims,[2,2,2],[6,6,6]);
+ const hole=at(v.dims,4,4,4);m[hole]=0;const before=m.slice();
+ const r=proposeMaskMorphology(v,m,{operation:'close',radiusMm:1});
+ assert.equal(r.status,'ok');assert.equal(r.operation,'close');assert.equal(r.radiusMm,1);
+ assert.deepEqual(r.added,[hole]);assert.deepEqual(r.removed,[]);
+ assert.deepEqual(m,before);assert.match(r.reason,/preview/i);
+});
+
+test('closing joins a narrow step but neither a broad gap nor distant islands at 1 mm',()=>{
+ const [v,m]=fixture([19,11,11]);
+ box(m,v.dims,[2,2,2],[6,8,8]);box(m,v.dims,[8,2,2],[12,8,8]);
+ // One voxel between the broad facing surfaces, and a stepped notch.
+ m[at(v.dims,6,5,5)]=0;
+ box(m,v.dims,[16,4,4],[17,6,6]);
+ const r=proposeMaskMorphology(v,m,{operation:'close',radiusMm:1});
+ assert.equal(r.status,'ok');assert(r.added.includes(at(v.dims,7,5,5)));
+ assert(r.added.includes(at(v.dims,6,5,5)));
+ assert(!r.added.some(i=>i%v.dims[0]===14));
+ const [v2,m2]=fixture([21,11,11]);
+ box(m2,v2.dims,[2,2,2],[6,8,8]);box(m2,v2.dims,[10,2,2],[14,8,8]);
+ const wide=proposeMaskMorphology(v2,m2,{operation:'close',radiusMm:1});
+ assert.equal(wide.status,'ok');assert(!wide.added.some(i=>[7,8,9].includes(i%v2.dims[0])));
+});
+
+test('closing respects 5 mm slices and the full sheared affine',()=>{
+ const [v,m]=fixture([9,9,3],[1,0,0,0,1,0,0,0,5]);
+ box(m,v.dims,[2,2,1],[6,6,1]);m[at(v.dims,4,4,1)]=0;
+ const r=proposeMaskMorphology(v,m,{operation:'close',radiusMm:1});
+ assert.equal(r.status,'ok');assert.deepEqual(r.added,[at(v.dims,4,4,1)]);
+ assert(!r.added.some(i=>Math.floor(i/(v.dims[0]*v.dims[1]))!==1));
+ const [s,q]=fixture([11,11,3],[1,-1,0,0,0.2,0,0,0,5]);
+ box(q,s.dims,[2,2,1],[8,8,1]);q[at(s.dims,5,5,1)]=0;
+ const sheared=proposeMaskMorphology(s,q,{operation:'close',radiusMm:0.5});
+ assert.equal(sheared.status,'ok');assert(sheared.added.includes(at(s.dims,5,5,1)));
+});
+
+test('closing treats image exterior as background without wraparound',()=>{
+ const [v,m]=fixture([9,9,9]);box(m,v.dims,[0,2,2],[5,6,6]);
+ m[at(v.dims,1,4,4)]=0;
+ const r=proposeMaskMorphology(v,m,{operation:'close',radiusMm:1});
+ assert.equal(r.status,'ok');assert(r.added.includes(at(v.dims,1,4,4)));
+ assert(r.removed.includes(at(v.dims,0,4,4)));
+ assert(r.added.every(i=>i>=0&&i<m.length));
+});
+
+test('closing empty mask is no-op and invalid input refuses',()=>{
+ const [v,m]=fixture([8,8,8]);
+ assert.deepEqual(proposeMaskMorphology(v,m,{operation:'close',maxRoiVoxels:1}),{status:'ok',removed:[],added:[],reason:'No target voxels to change; review preview before acceptance.',operation:'close',radiusMm:1});
+ for(const options of [{operation:'close',radiusMm:0},{operation:'close',maxRoiVoxels:0},{operation:'close',radiusMm:1e200}]){
+  const r=proposeMaskMorphology(v,m,options);assert.equal(r.status,'invalid');assert.deepEqual(r.added,[]);
+ }
+});
+
+test('closing refuses an over-budget halo before yielding any partial delta',()=>{
+ const [v,m]=fixture([20,20,20]);box(m,v.dims,[8,8,8],[10,10,10]);const before=m.slice();
+ const r=proposeMaskMorphology(v,m,{operation:'close',radiusMm:1,maxRoiVoxels:27});
+ assert.equal(r.status,'budget');assert.match(r.reason,/halo|budget/i);
+ assert.deepEqual(r.added,[]);assert.deepEqual(r.removed,[]);assert.deepEqual(m,before);
+});
+
 test('5 mm slice spacing prevents through-slice erosion at 1 mm',()=>{
  const [v,m]=fixture([7,7,3],[1,0,0,0,1,0,0,0,5]);box(m,v.dims,[1,1,1],[5,5,1]);
  const r=proposeMaskMorphology(v,m,{operation:'erode',radiusMm:1});

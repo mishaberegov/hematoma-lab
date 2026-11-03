@@ -135,6 +135,11 @@ export function history(mask,v){const undoStack=[],redoStack=[],counts={};
   const apply=(changes,forward)=>{for(const [i,old,next] of changes){const from=forward?old:next,to=forward?next:old;if(v){const n=weight(i);if(from)counts[from]-=n;if(to)counts[to]=(counts[to]||0)+n;}mask[i]=to;}};
   return {
   commit(indices,label){const changes=Array.from(new Set(indices)).filter(i=>mask[i]!==label).map(i=>[i,mask[i],label]);apply(changes,true);if(changes.length){undoStack.push(changes);redoStack.length=0;}return changes.length;},
+  commitDelta(removed,added,label=1){const drops=new Set(removed),gains=new Set(added);
+   if([...drops].some(i=>!Number.isSafeInteger(i)||i<0||i>=mask.length||mask[i]!==label||gains.has(i))||
+      [...gains].some(i=>!Number.isSafeInteger(i)||i<0||i>=mask.length||mask[i]!==0))return 0;
+   const changes=[...[...drops].map(i=>[i,label,0]),...[...gains].map(i=>[i,0,label])];
+   if(changes.length){apply(changes,true);undoStack.push(changes);redoStack.length=0;}return changes.length;},
   undo(){const changes=undoStack.pop();if(!changes)return false;apply(changes,false);redoStack.push(changes);return true;},
   redo(){const changes=redoStack.pop();if(!changes)return false;apply(changes,true);undoStack.push(changes);return true;},
   volumes(){if(!v)throw Error('Volume geometry required');const m=v.matrix,voxel=Math.abs(m[0]*(m[4]*m[8]-m[5]*m[7])-m[1]*(m[3]*m[8]-m[5]*m[6])+m[2]*(m[3]*m[7]-m[4]*m[6]))/1000,unit=voxel/(factor*factor),out={total:0};for(const [label,count] of Object.entries(counts))if(count){out[label]=count*unit;out.total+=out[label];}return out;}

@@ -194,3 +194,15 @@ test('derived-grid volume weights partial edge blocks by their actual source-pix
  mask.fill(1);
  assert.equal(volumes(mask,derived).total,5*3*3*.5*.5/1000);
 });
+test('closing delta commits removal and addition atomically with one Undo',()=>{
+ const grid={dims:[3,3,3],matrix:[1,0,0,0,1,0,0,0,1]};
+ const mask=new Uint8Array(27);mask[10]=1;
+ const edits=history(mask,grid);
+ assert.equal(edits.commitDelta([10],[11,12]),3);
+ assert.equal(edits.volumes().total,.002);
+ assert.equal(edits.commitDelta([11],[11]),0,'overlapping delta is refused');
+ assert.equal(edits.volumes().total,.002);
+ assert.equal(edits.undo(),true);assert.deepEqual([mask[10],mask[11],mask[12]],[1,0,0]);
+ assert.equal(edits.undo(),false,'a combined cleanup uses exactly one history entry');
+ assert.equal(edits.redo(),true);assert.deepEqual([mask[10],mask[11],mask[12]],[0,1,1]);
+});
