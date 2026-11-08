@@ -51,12 +51,11 @@ test('UI reads accepted mask volumes from incremental edit history',()=>{
 test('a single discovered series builds without asking for a one-option selection',()=>{
  const app=read('app.mjs');
  assert.match(app,/data\.groups\.length===1/);
- assert.match(app,/worker\.postMessage\(\{type:'build',key:data\.groups\[0\]\.key\}\)/);
+ assert.match(app,/startBuild\(data\.groups\[0\]\.key\)/);
 });
 test('starting a dropped directory immediately cancels the previous decoding worker',()=>{
  const app=read('app.mjs');
- assert.match(app,/const token=inputGate\.begin\(\);\s*worker\?\.terminate\(\);worker=null;/);
- assert.match(app,/const token=inputGate\.begin\(\);\s*worker\?\.terminate\(\);worker=null;\s*clearVolume\(\)/);
+ assert.match(app,/const token=inputGate\.begin\(\);\s*worker\?\.terminate\(\);worker=null;loadState\.beginScan\(\);syncLoadControls\(\);clearVolume\(\)/);
 });
 test('late directory traversal cannot replace a newer input or its status',()=>{
  const app=read('app.mjs');

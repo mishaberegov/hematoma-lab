@@ -3,6 +3,7 @@ import {morphGrow} from './morph-grow.mjs?v=0.8.6';
 import {morphShrink} from './morph-shrink.mjs?v=0.8.6';
 import {filesFromDrop} from './drop-files.mjs?v=0.8.6';
 import {inputGeneration} from './input-generation.mjs?v=0.8.6';
+import {createLoadState} from './load-state.mjs?v=0.8.6';
 import {localeFromSearch,t,translateBackend} from './i18n.mjs?v=0.8.6';
 function lang(){return localeFromSearch(location.search);}
 const msg=(key,params)=>t(key,lang(),params);
@@ -11,6 +12,7 @@ const shapeName=shrinking=>lang()==='ru'?(shrinking?'Уменьшение с у�
 function describeLocalizedInput(files,isDirectory){return t('input.description',lang(),{kind:msg(isDirectory?'input.folder':'input.files'),count:files.length,empty:Array.from(files).filter(file=>file.size===0).length});}
 const $=id=>document.getElementById(id),colors=[[0,0,0],[255,78,84]];
 const inputGate=inputGeneration();
+const loadState=createLoadState();
 let volume=null,mask=null,edits=null,worker=null,preview=null,holding=null,gesture=null,zoom=1,cross=[0,0,0],adaptiveCandidate=null,adaptivePositive=[],adaptiveNegative=[],adaptiveWorker=null,adaptiveGeneration=0,undoActions=[],redoActions=[];const canvases=['axial','coronal','sagittal'];
 let morphCandidate=null,morphWorker=null,morphGeneration=0,previewPlane='axial';
 function clearMorph(){morphGeneration++;if(morphWorker){morphWorker.terminate();morphWorker=null;}const had=!!morphCandidate;morphCandidate=null;$('morphAccept').hidden=$('morphDiscard').hidden=true;if(had&&volume)draw();}
@@ -111,16 +113,46 @@ $('adaptiveSensitivity').addEventListener('input',()=>{$('adaptiveSensitivityTex
 $('adaptiveAccept').onclick=()=>{if(!adaptiveCandidate||!volume)return;const total=edits.volumes().total+adaptiveMl(adaptiveCandidate.indices);if(total>100&&!confirm(t('confirm.adaptive',lang(),{total:total.toFixed(3)})))return;clearMorph();const beforePositive=adaptivePositive,beforeNegative=adaptiveNegative,changed=edits.commit(adaptiveCandidate.indices,1),edit=edits;clearAdaptivePoints();const afterPositive=adaptivePositive,afterNegative=adaptiveNegative;recordAction({undo(){if(changed)edit.undo();adaptivePositive=beforePositive;adaptiveNegative=beforeNegative;},redo(){if(changed)edit.redo();adaptivePositive=afterPositive;adaptiveNegative=afterNegative;}});renderVolumes();action(t('action.adaptiveAccepted',lang(),{count:changed}));};
 $('adaptiveDiscard').onclick=()=>{clearAdaptive();action(msg('action.proposalDiscarded'));};
 $('adaptiveClear').onclick=()=>{const oldPositive=adaptivePositive,oldNegative=adaptiveNegative;clearAdaptivePoints();if(oldPositive.length||oldNegative.length)recordAction({undo(){adaptivePositive=oldPositive;adaptiveNegative=oldNegative;},redo(){adaptivePositive=[];adaptiveNegative=[];}});action(msg('action.pointsCleared'));};
-function scan(files,isDirectory=false){inputGate.begin();if(!files.length)return;clearVolume();worker?.terminate();worker=new Worker('./io-worker.js?v=0.8.6');const current=worker,inputFiles=Array.from(files),input=()=>describeLocalizedInput(inputFiles,isDirectory);status(t('status.scan',lang(),{input:input()}));$('series').hidden=$('load').hidden=true;worker.onerror=e=>{if(worker===current)status(t('status.workerFailure',lang(),{input:input(),error:translateBackend(e.message,lang())}));};worker.onmessage=({data})=>{if(worker!==current)return;if(data.type==='error'){status(t('status.measurementBlocked',lang(),{version:'v0.8.6',input:input(),error:translateBackend(data.message,lang())}));return;}if(data.type==='groups'){const select=$('series');select.replaceChildren(...data.groups.map(g=>{const o=document.createElement('option');o.value=g.key;o.textContent=g.name+' · '+g.modality+' · '+g.frames+(lang()==='ru'?' срезов · ':' slices · ')+g.dims.join('×');return o;}));if(data.groups.length===1){select.hidden=$('load').hidden=true;status(msg('status.oneSeries'));worker.postMessage({type:'build',key:data.groups[0].key});}else{select.hidden=$('load').hidden=false;status(t('status.seriesChoice',lang(),{found:data.groups.length,skipped:data.skipped}));}}if(data.type==='volume')setVolume(data.volume);if(data.type==='progress')status(t('status.progress',lang(),{text:translateBackend(data.text,lang()),percent:Math.round(data.fraction*100)}));};worker.postMessage({type:'scan',slot:'ct',files:Array.from(files)});}
+function syncLoadControls(){const building=loadState.snapshot().phase==='building';$('series').disabled=building;$('load').disabled=building;}
+function startBuild(key){
+ const request=worker&&loadState.beginBuild(key);
+ if(!request)return false;
+ clearVolume();syncLoadControls();status(msg('status.decoding'));
+ worker.postMessage({type:'build',...request});return true;
+}
+function scan(files,isDirectory=false){
+ inputGate.begin();if(!files.length)return;
+ loadState.beginScan();syncLoadControls();clearVolume();worker?.terminate();
+ worker=new Worker('./io-worker.js?v=0.8.6');const current=worker,inputFiles=Array.from(files),input=()=>describeLocalizedInput(inputFiles,isDirectory);
+ status(t('status.scan',lang(),{input:input()}));$('series').hidden=$('load').hidden=true;
+ worker.onerror=e=>{if(worker!==current)return;loadState.fail();syncLoadControls();$('series').hidden=$('load').hidden=true;status(t('status.workerFailure',lang(),{input:input(),error:translateBackend(e.message,lang())}));};
+ worker.onmessage=({data})=>{
+  if(worker!==current)return;
+  if(data.type==='error'){loadState.fail();syncLoadControls();$('series').hidden=$('load').hidden=true;status(t('status.measurementBlocked',lang(),{version:'v0.8.6',input:input(),error:translateBackend(data.message,lang())}));return;}
+  if(data.type==='groups'){
+   if(!loadState.found(data.groups.map(g=>g.key)))return;
+   const select=$('series');select.replaceChildren(...data.groups.map(g=>{const o=document.createElement('option');o.value=g.key;o.textContent=g.name+' · '+g.modality+' · '+g.frames+(lang()==='ru'?' срезов · ':' slices · ')+g.dims.join('×');return o;}));
+   if(data.groups.length===1){select.hidden=$('load').hidden=true;status(msg('status.oneSeries'));startBuild(data.groups[0].key);}
+   else{select.hidden=$('load').hidden=false;status(t('status.seriesChoice',lang(),{found:data.groups.length,skipped:data.skipped}));}
+   syncLoadControls();
+  }
+  if(data.type==='volume'){
+   if(!loadState.acceptVolume(data)){loadState.fail();syncLoadControls();$('series').hidden=$('load').hidden=true;status(msg('status.seriesMismatch'));return;}
+   syncLoadControls();setVolume(data.volume);
+  }
+  if(data.type==='progress')status(t('status.progress',lang(),{text:translateBackend(data.text,lang()),percent:Math.round(data.fraction*100)}));
+ };
+ worker.postMessage({type:'scan',slot:'ct',files:Array.from(files)});
+}
 window.addEventListener('resize',updateSamplingPreview);
 setCursorMode(true);
 updateMorphAvailability();
 $('pickFiles').addEventListener('click',()=>$('files').click());$('pickFolder').addEventListener('click',()=>$('folder').click());
-$('files').onchange=e=>scan(e.target.files);$('folder').onchange=e=>scan(e.target.files,true);$('load').onclick=()=>{if(!worker)return;clearVolume();status(msg('status.decoding'));worker.postMessage({type:'build',key:$('series').value});};
+$('files').onchange=e=>scan(e.target.files);$('folder').onchange=e=>scan(e.target.files,true);$('load').onclick=()=>startBuild($('series').value);
 document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',async e=>{
  e.preventDefault();const token=inputGate.begin();
- worker?.terminate();worker=null;clearVolume();$('series').hidden=$('load').hidden=true;status(msg('status.readingDrop'));
+ worker?.terminate();worker=null;loadState.beginScan();syncLoadControls();clearVolume();$('series').hidden=$('load').hidden=true;status(msg('status.readingDrop'));
  try{const isDirectory=Array.from(e.dataTransfer.items||[]).some(item=>item.webkitGetAsEntry?.()?.isDirectory),awaitedFiles=await filesFromDrop(e.dataTransfer);if(inputGate.current(token))scan(awaitedFiles,isDirectory);}
  catch(error){if(inputGate.current(token))status(t('status.dropFailure',lang(),{error:translateBackend(error.message,lang())}));}
 });

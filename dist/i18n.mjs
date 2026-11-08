@@ -70,6 +70,7 @@ const pairs = {
   'status.readingDrop': ['Reading dropped input…', 'Чтение перетащенных файлов…'],
   'status.dropFailure': ['Could not read dropped folder: {error}', 'Не удалось прочитать перетащенную папку: {error}'],
   'status.workerFailure': ['Worker failure ({input}): {error}', 'Ошибка фонового процесса ({input}): {error}'],
+  'status.seriesMismatch': ['The decoded series did not match the requested selection. No image was loaded; choose the files again.', 'Декодированная серия не совпала с выбранной. Изображение не загружено; выберите файлы заново.'],
   'status.measurementBlocked': ['Measurement blocked [{version}; {input}]: {error}', 'Измерение заблокировано [{version}; {input}]: {error}'],
   'status.sourceGrid': ['{modality} source grid · {dims} · Float32 · local only', 'Исходная сетка {modality} · {dims} · Float32 · только локально'],
   'status.reducedGrid': ['Reduced {modality} grid · approximate · {dims} · Float32 · local only', 'Уменьшенная сетка {modality} · приблизительно · {dims} · Float32 · только локально'],

@@ -144,7 +144,7 @@ self.onmessage=async({data})=>{
       if(parsed.length!==sources.length||parsed.some(p=>!p||p.key!==group.key))throw Error('Не удалось повторно прочитать выбранную серию.');
       const selected=groupParsed(parsed)[0];
       const volume=await buildMeasuredVolume(selected,{codec,onProgress:f=>self.postMessage({type:'progress',slot,text:'Full image stack',fraction:f})});
-      self.postMessage({type:'volume',slot,volume},[volume.data.buffer]);
+      self.postMessage({type:'volume',slot,key:data.key,requestId:data.requestId,volume},[volume.data.buffer]);
     }
   }catch(e){self.postMessage({type:'error',slot,message:e.message||String(e)});}finally{busy=false;}
 };
